@@ -11,6 +11,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/personal-stakshi/draftly/backend/controllers/auth"
 	"github.com/personal-stakshi/draftly/backend/database"
+	"github.com/personal-stakshi/draftly/backend/models"
 	"github.com/personal-stakshi/draftly/backend/config"
 )
 
