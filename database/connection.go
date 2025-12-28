@@ -1,4 +1,4 @@
-package dbops
+package database
 
 import (
 	"log"
@@ -21,9 +21,9 @@ func ConnectDatabase(cfg *config.Config) {
 	// This is crucial for Supabase Transaction Pooler (port 6543)
 	database, err := gorm.Open(postgres.New(postgres.Config{
 		DSN:                  dsn,
-		PreferSimpleProtocol: true, 
+		PreferSimpleProtocol: true,
 	}), &gorm.Config{
-		PrepareStmt: false, // Also disable GORM's caching
+		PrepareStmt: false, // disable GORM's caching
 	})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)

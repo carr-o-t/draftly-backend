@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/personal-stakshi/draftly/backend/app"
 	"github.com/personal-stakshi/draftly/backend/config"
-	"github.com/personal-stakshi/draftly/backend/dbops"
+	"github.com/personal-stakshi/draftly/backend/database"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Connect to database
-	dbops.ConnectDatabase(cfg)
+	database.ConnectDatabase(cfg)
 
 	// Initialize Gin router
 	r := gin.Default()
