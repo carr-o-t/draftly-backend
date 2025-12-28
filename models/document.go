@@ -15,7 +15,7 @@ type Document struct {
 	UpdatedAt time.Time `json:"updated_at"`
 
 	// Relations
-	Owner    User            `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`
+	Owner    User            `gorm:"foreignKey:OwnerID;constraint:OnDelete:CASCADE" json:"owner,omitempty"`
 	Shares   []DocumentShare `gorm:"foreignKey:DocumentID;constraint:OnDelete:CASCADE" json:"shares,omitempty"`
 	Versions []Version       `gorm:"foreignKey:DocumentID;constraint:OnDelete:CASCADE" json:"versions,omitempty"`
 }
