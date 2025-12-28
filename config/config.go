@@ -11,6 +11,7 @@ type Config struct {
 	SupabaseURL string
 	SupabaseKey string
 	ServerPort  string
+	DatabaseURL string
 }
 
 func LoadConfig() *Config {
@@ -23,6 +24,7 @@ func LoadConfig() *Config {
 		SupabaseURL: getEnv("SUPABASE_PROJECT_URL", ""),
 		SupabaseKey: getEnv("SUPABASE_API_KEY", ""),
 		ServerPort:  getEnv("PORT", "8080"),
+		DatabaseURL: getEnv("DATABASE_URL", ""),
 	}
 }
 
