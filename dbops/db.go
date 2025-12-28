@@ -17,7 +17,14 @@ func ConnectDatabase(cfg *config.Config) {
 		log.Fatal("DATABASE_URL is not set in environment variables")
 	}
 
-	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Use PreferSimpleProtocol to disable implicit prepared statement usage by the driver
+	// This is crucial for Supabase Transaction Pooler (port 6543)
+	database, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true, 
+	}), &gorm.Config{
+		PrepareStmt: false, // Also disable GORM's caching
+	})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
