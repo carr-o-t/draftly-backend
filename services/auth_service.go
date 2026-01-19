@@ -36,7 +36,7 @@ func (s *authService) LoginOrRegister(email, password, ip string) (*models.User,
 		
 		// 1. IP Rate Limiting Check
 		ipUsage, err := s.userRepo.GetIPUsage(ip)
-		if err == nil && ipUsage.CreatedAccounts >= 2 {
+		if err == nil && ipUsage.CreatedAccounts >= 3 {
 			return nil, "", false, errors.New("registration limit exceeded for this IP")
 		}
 
