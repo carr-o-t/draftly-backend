@@ -2,6 +2,7 @@ package document
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,12 +43,12 @@ func transformDocument(doc *models.Document, role string) DocumentResponse {
 func SendDocumentResponse(c *gin.Context, doc *models.Document, role string, err error) {
 	if err != nil {
 		status := http.StatusInternalServerError
-		switch err.Error() {
-		case "document not found":
+		errStr := err.Error()
+		if errStr == "document not found" {
 			status = http.StatusNotFound
-		case "access denied", "permission denied", "permission denied: only owner can delete":
+		} else if strings.Contains(errStr, "access denied") || strings.Contains(errStr, "permission denied") {
 			status = http.StatusForbidden
-		default:
+		} else {
 			status = http.StatusInternalServerError
 		}
 
