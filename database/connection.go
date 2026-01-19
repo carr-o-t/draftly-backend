@@ -33,9 +33,11 @@ func ConnectDatabase(cfg *config.Config) {
 	err = database.AutoMigrate(
 		&models.User{},
 		&models.Document{},
-		&models.DocumentShare{},
+		&models.DocumentShare{}, // Keep for now or deprecate? MVP says replace.
 		&models.Version{},
 		&models.IPUsage{},
+		&models.AccessRequest{},
+		&models.DocumentPermission{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
