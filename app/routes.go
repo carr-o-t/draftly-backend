@@ -5,6 +5,7 @@ import (
 	"github.com/personal-stakshi/draftly/backend/controllers/auth"
 	"github.com/personal-stakshi/draftly/backend/controllers/document"
 	"github.com/personal-stakshi/draftly/backend/controllers/health"
+	"github.com/personal-stakshi/draftly/backend/controllers/share"
 	"github.com/personal-stakshi/draftly/backend/middleware"
 )
 
@@ -35,6 +36,20 @@ func SetupRoutes(r *gin.Engine) {
 			docsGroup.PATCH("/:id", document.UpdateDocument)
 			docsGroup.DELETE("/:id", document.DeleteDocument)
 			docsGroup.PATCH("/:id/autosave", document.AutoSave)
+			
+			// Permission Sharing Routes
+			docsGroup.POST("/:id/share", share.InviteUsers)
+			docsGroup.GET("/:id/share", share.ListPermissions)
+			docsGroup.DELETE("/:id/share/:userId", share.RevokeAccess)
+			
+			docsGroup.POST("/:id/request-access", share.RequestAccess)
+			docsGroup.POST("/:id/requests/:requestId", share.HandleRequest)
 		}
+		
+		// Access Requests List
+		v1.GET("/access/requests", middleware.AuthMiddleware(), share.ListRequests)
+		
+		// Share Token Access
+		v1.POST("/share/access", middleware.AuthMiddleware(), share.AccessByToken)
 	}
 }

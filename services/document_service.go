@@ -1,6 +1,8 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -20,12 +22,16 @@ type DocumentService interface {
 }
 
 type documentService struct {
-	docRepo  dbops.DocumentRepository
+	docRepo   dbops.DocumentRepository
+	shareRepo dbops.ShareRepository
+	permRepo  dbops.PermissionRepository
 }
 
-func NewDocumentService(repo dbops.DocumentRepository) DocumentService {
+func NewDocumentService(repo dbops.DocumentRepository, shareRepo dbops.ShareRepository, permRepo dbops.PermissionRepository) DocumentService {
 	return &documentService{
-		docRepo:  repo,
+		docRepo:   repo,
+		shareRepo: shareRepo,
+		permRepo:  permRepo,
 	}
 }
 
@@ -41,7 +47,26 @@ func (s *documentService) CreateDocument(ownerID uuid.UUID, title string) (*mode
 	if err := s.docRepo.CreateDocument(doc); err != nil {
 		return nil, err
 	}
+
+	// Auto-generate Share Token
+	token := generateSecureToken()
+	
+	share := &models.DocumentShare{
+		DocumentID: doc.ID,
+		Token:      token,
+		CreatedAt:  time.Now(),
+		ExpiresAt:  time.Now().Add(24 * 365 * 10 * time.Hour), // 10 Years
+	}
+	// Best effort creation of share token
+	s.shareRepo.CreateShare(share)
+
 	return doc, nil
+}
+
+func generateSecureToken() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func (s *documentService) GetDocument(id uuid.UUID, userID uuid.UUID) (*models.Document, string, error) {
@@ -58,45 +83,27 @@ func (s *documentService) GetDocument(id uuid.UUID, userID uuid.UUID) (*models.D
 		return doc, "owner", nil
 	}
 
-	// 2. Check Shares (Basic MVP: assuming Shares are linked to tokens, but here we might list shared docs for a user if we had a user_shares table. 
-	// The prompt requirement says: "If user_id == document.owner_id -> role = owner. Else if request includes a valid share_token: role = role_granted. Else: access denied".
-	// WAIT. The GET /v1/documents/{id} requirement says "Access rules: Owner -> allowed, Valid share token -> allowed".
-	// It relies on providing the token maybe?
-	// But `ListDocuments` returns "shared_with_me" documents accessed via share links. This implies we persist who accessed what? OR "my_documents" + "shared_with_me" implies we store the link.
-	// Actually, usually shared docs are stored in a 'permissions' or 'shares' table linked to user if it's "Shared With Me".
-	// The prompt: "Share Links (Token-Based). Documents are shared via share links, NOT user invitations. access denied if no token".
-	// So `GetDocument` primarily works for Owner. For others, they likely use the share link endpoint `POST /v1/share/access`.
-	// HOWEVER, getting the doucment *after* having access?
-	// Re-reading Req 3.3 DOcument Listing: "Response contains ... shared_with_me: documents accessed via share links". 
-	// This implies we DO store which users accessed which documents via tokens? 
-	// Req 4.3 Share Link Access: "User opens shared link ... Grants document access".
-	// So we need to store "User X has access to Doc Y via Token Z"?
-	// The DB schema `document_shares` table has `token` and `role_granted`. It DOES NOT have `user_id`. 
-	// This means the link is public to anyone with the token.
-	// So how do we "List shared with me"?
-	// Maybe we don't PERSIST the access in the backend for the MVP?
-	// OR does the client store the list of visited docs?
-	// Requirements say: "Response contains two distinct lists: my_documents, shared_with_me". 
-	// This implies Backend MUST know what is shared with me. 
-	// BUT the schema provided (Image 2) `document_shares` (ID, DocID, Token, Role) has NO USER ID.
-	// And `permissions` table in Architecture Diagram? Schema image doesn't show `permissions`. Schema shows `document_shares`.
-	// Wait, Image 1 (Arch) has `Permissions Table`, `Document Shares Table`. 
-	// Image 2 (Schema) ONLY has `document_shares`.
-	// AND Req 9 "Explicit Non-Goals": "No per-user invitations", "No multi-role per user per document".
-	// IF there is no table satisfying "User U has access to Doc D", then `shared_with_me` is impossible to implement purely server-side unless we track "visited" links.
-	// Let's assume for MVP `ListDocuments` only returns "My Documents" reliably. `shared_with_me` might be empty or logic is missing from schema. 
-	// I will focus on "My Documents" for now, and for GetDocument, only Owner has direct access by ID. 
-	// To access via Share Link, presumably the client sends the token? The Req 2.2 says "Else if request includes a valid share_token".
-	// So `GetDocument` might take an optional `token` arg?
-	// For now, I will strictly implement: Owner Access. 
-	// If the user wants to access via token, they might use the Share Access flow or pass token in header?
-	// I will assume for `GetDocument(id, userID)`: STRICTLY checks if user is Owner.
-	
-	if doc.OwnerID != userID {
-		return nil, "", errors.New("access denied")
+	// 2. Check Permissions (Direct Invite)
+	perm, err := s.permRepo.GetPermission(id, userID)
+	if err == nil {
+		return doc, string(perm.Role), nil
 	}
-	
-	return doc, "owner", nil
+
+	// 3. Fallback: Check Token? 
+	// The current requirement and GetDocument signature relies on userID.
+	// If the user accessed via a public link (token), the Client normally hits the "Access Share Link" API first/separately.
+	// However, if the user is logged in, and clicking a link, maybe we should auto-grant permission?
+	// For "GetDocument", strict check: Owner OR Permission. 
+	// Access via Token is handled by `CreatePermission` or separate flow?
+	// Phase 4 "Access Token" logic was: Return doc info. 
+	// If the link is just an entry point, users might still need to specific "Request Access" if they are not invited.
+	// BUT, if the link is a "Magic Link" that gives access... DocumentShare has NO ROLE now.
+	// So purely clicking the link does NOT grant access unless the app logic says so.
+	// The user said: "There is to be only one share token... remove role granted". 
+	// This implies the token is just for LOCATING the document or Starting the flow.
+	// So Access Denied here is correct if no explicit permission exists.
+
+	return nil, "", errors.New("access denied")
 }
 
 func (s *documentService) ListDocuments(userID uuid.UUID) ([]models.Document, []models.Document, error) {
@@ -106,10 +113,18 @@ func (s *documentService) ListDocuments(userID uuid.UUID) ([]models.Document, []
 		return nil, nil, err
 	}
 
-	// shared_with_me
-	// Given the schema limitations (no user-share mapping), we return empty list for now.
-	// This aligns with "Share Links" vs "Invites".
-	sharedDocs := []models.Document{} 
+	// shared_with_me (From Permissions)
+	perms, err := s.permRepo.ListSharedDocuments(userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	
+	sharedDocs := make([]models.Document, len(perms))
+	for i, p := range perms {
+		// p.Document is preloaded
+		sharedDocs[i] = p.Document
+		// Note: p.Document.Owner is also preloaded if `ListSharedDocuments` did it.
+	}
 
 	return myDocs, sharedDocs, nil
 }
@@ -120,7 +135,6 @@ func (s *documentService) UpdateDocument(id uuid.UUID, userID uuid.UUID, title, 
 		return nil, err
 	}
 	
-	// Both Owner and Editor can edit (but currently GetDocument only allows Owner)
 	if role != "owner" && role != "editor" {
 		return nil, errors.New("permission denied")
 	}
