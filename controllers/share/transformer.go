@@ -19,6 +19,7 @@ type AccessRequestResponse struct {
 	DocID     string `json:"document_id"`
 	DocTitle  string `json:"doc_title,omitempty"`
 	RequesterID string `json:"requester_id"`
+	RequesterEmail string `json:"requester_email"`
 	Requester string `json:"requester_name,omitempty"`
 	Status    string `json:"status"`
 	Role      string `json:"role"`
@@ -85,6 +86,7 @@ func TransformRequests(reqs []models.AccessRequest) []AccessRequestResponse {
 			DocID:       r.DocumentID.String(),
 			DocTitle:    r.Document.Title, // loaded with preload
 			RequesterID: r.RequesterID.String(),
+			RequesterEmail: r.Requester.Email, // loaded with preload
 			Requester:   r.Requester.Name, // loaded with preload
 			Status:      string(r.Status),
 			Role:      string(r.Role),
