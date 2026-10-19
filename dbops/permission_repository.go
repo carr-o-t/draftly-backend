@@ -8,19 +8,18 @@ import (
 )
 
 type PermissionRepository interface {
-	// Permissions
 	CreatePermission(perm *models.DocumentPermission) error
+	UpdatePermission(perm *models.DocumentPermission) error
 	GetPermission(documentID, userID uuid.UUID) (*models.DocumentPermission, error)
 	ListPermissions(documentID uuid.UUID) ([]models.DocumentPermission, error)
 	DeletePermission(documentID, userID uuid.UUID) error
 	ListSharedDocuments(userID uuid.UUID) ([]models.DocumentPermission, error)
 
-	// Access Requests
 	CreateAccessRequest(req *models.AccessRequest) error
 	GetAccessRequest(id uuid.UUID) (*models.AccessRequest, error)
 	UpdateAccessRequest(req *models.AccessRequest) error
-	ListAccessRequests(userID uuid.UUID) ([]models.AccessRequest, error) // For requests I SENT
-	ListPendingRequestsForDocs(ownerID uuid.UUID) ([]models.AccessRequest, error) // For requests I RECEIVED (as owner)
+	ListAccessRequests(userID uuid.UUID) ([]models.AccessRequest, error) // requests i sent
+	ListPendingRequestsForDocs(ownerID uuid.UUID) ([]models.AccessRequest, error) // requests i recieve as owner
 }
 
 type postgresPermissionRepository struct {
@@ -31,10 +30,14 @@ func NewPermissionRepository() PermissionRepository {
 	return &postgresPermissionRepository{db: database.DB}
 }
 
-// --- Permissions ---
+// --- permissions ---
 
 func (r *postgresPermissionRepository) CreatePermission(perm *models.DocumentPermission) error {
 	return r.db.Create(perm).Error
+}
+
+func (r *postgresPermissionRepository) UpdatePermission(perm *models.DocumentPermission) error {
+	return r.db.Save(perm).Error
 }
 
 func (r *postgresPermissionRepository) GetPermission(documentID, userID uuid.UUID) (*models.DocumentPermission, error) {
@@ -62,7 +65,7 @@ func (r *postgresPermissionRepository) ListSharedDocuments(userID uuid.UUID) ([]
 	return perms, err
 }
 
-// --- Access Requests ---
+// --- access requests ---
 
 func (r *postgresPermissionRepository) CreateAccessRequest(req *models.AccessRequest) error {
 	return r.db.Create(req).Error
@@ -83,18 +86,15 @@ func (r *postgresPermissionRepository) UpdateAccessRequest(req *models.AccessReq
 
 func (r *postgresPermissionRepository) ListAccessRequests(userID uuid.UUID) ([]models.AccessRequest, error) {
 	var reqs []models.AccessRequest
-	err := r.db.Preload("Document").Where("requester_id = ?", userID).Order("created_at desc").Find(&reqs).Error
+	err := r.db.Preload("Document").Preload("Requester").Where("requester_id = ?", userID).Order("created_at desc").Find(&reqs).Error
 	return reqs, err
 }
 
 func (r *postgresPermissionRepository) ListPendingRequestsForDocs(ownerID uuid.UUID) ([]models.AccessRequest, error) {
-	// Complex Query: Find requests where Document Owner is ownerID AND Status is Pending
 	var reqs []models.AccessRequest
-	// Join Documents to filter by OwnerID
 	err := r.db.Joins("Document").
 		Preload("Requester").
-		// Where("status = ?", models.StatusPending).
-		Where("\"Document\".owner_id = ?", ownerID). // Note: Case sensitive table alias depending on GORM logic, usually standard
+		Where("\"Document\".owner_id = ?", ownerID). // table alias is case sensitive here
 		Order("created_at desc").
 		Find(&reqs).Error
 	return reqs, err

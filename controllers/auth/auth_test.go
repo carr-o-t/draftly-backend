@@ -9,13 +9,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/personal-stakshi/draftly/backend/config"
 	"github.com/personal-stakshi/draftly/backend/controllers/auth"
 	"github.com/personal-stakshi/draftly/backend/database"
 	"github.com/personal-stakshi/draftly/backend/models"
-	"github.com/personal-stakshi/draftly/backend/config"
 )
 
-// Setup Router for testing
+// set up the router for the tests
 func setupRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -23,26 +23,23 @@ func setupRouter() *gin.Engine {
 	return r
 }
 
-// Targeted Cleanup helper
+// clean up test data
 func cleanupTestData(email, ip string) {
-	// Delete specific test user
 	database.DB.Where("email = ?", email).Delete(&models.User{})
-	// Delete specific test IP usage
 	database.DB.Where("ip_address = ?", ip).Delete(&models.IPUsage{})
 }
 
 func TestAuthFlow(t *testing.T) {
-	// Initialize Config & DB
-	// Manually load env for tests since they run in subfolder
+	// init config and db
 	godotenv.Load("../../.env")
-	
+
 	cfg := config.LoadConfig()
 	database.ConnectDatabase(cfg)
-	
-	testEmail := "test_auto@example.com" // Distinct email for automation
-	testIP := "10.0.0.99"              // Distinct IP for automation
 
-	// Ensure clean state before and after
+	testEmail := "test_auto@example.com"
+	testIP := "10.0.0.99"
+
+	// start and end clean
 	cleanupTestData(testEmail, testIP)
 	defer cleanupTestData(testEmail, testIP)
 
@@ -55,8 +52,9 @@ func TestAuthFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(reqBody)
 		req, _ := http.NewRequest("POST", "/v1/auth/login-or-register", bytes.NewBuffer(body))
+		req.RemoteAddr = testIP + ":1234"
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Forwarded-For", testIP) // Mock IP
+		req.Header.Set("X-Forwarded-For", testIP) // fake the ip
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -66,11 +64,11 @@ func TestAuthFlow(t *testing.T) {
 
 		var resp map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		
+
 		if resp["success"] != true {
 			t.Error("Expected success true")
 		}
-		
+
 		data := resp["data"].(map[string]interface{})
 		if data["is_new"] != true {
 			t.Error("Expected is_new true")
@@ -84,6 +82,7 @@ func TestAuthFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(reqBody)
 		req, _ := http.NewRequest("POST", "/v1/auth/login-or-register", bytes.NewBuffer(body))
+		req.RemoteAddr = testIP + ":1234"
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Forwarded-For", testIP)
 		w := httptest.NewRecorder()
@@ -95,7 +94,7 @@ func TestAuthFlow(t *testing.T) {
 
 		var resp map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		
+
 		data := resp["data"].(map[string]interface{})
 		if data["is_new"] != false {
 			t.Error("Expected is_new false")
@@ -109,6 +108,7 @@ func TestAuthFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(reqBody)
 		req, _ := http.NewRequest("POST", "/v1/auth/login-or-register", bytes.NewBuffer(body))
+		req.RemoteAddr = testIP + ":1234"
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -125,6 +125,7 @@ func TestAuthFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(reqBody)
 		req, _ := http.NewRequest("POST", "/v1/auth/login-or-register", bytes.NewBuffer(body))
+		req.RemoteAddr = testIP + ":1234"
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)

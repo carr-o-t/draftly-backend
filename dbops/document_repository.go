@@ -11,9 +11,10 @@ type DocumentRepository interface {
 	CreateDocument(doc *models.Document) error
 	GetDocumentByID(id uuid.UUID) (*models.Document, error)
 	ListDocumentsByOwner(ownerID uuid.UUID) ([]models.Document, error)
+	CountDocumentsByOwner(ownerID uuid.UUID) (int64, error)
 	UpdateDocument(doc *models.Document) error
 	DeleteDocument(id uuid.UUID) error
-	// For resolving shares 
+	// used when we need the shares along with the doc
 	GetDocumentWithShares(id uuid.UUID) (*models.Document, error)
 }
 
@@ -40,9 +41,14 @@ func (r *postgresDocumentRepository) GetDocumentByID(id uuid.UUID) (*models.Docu
 
 func (r *postgresDocumentRepository) ListDocumentsByOwner(ownerID uuid.UUID) ([]models.Document, error) {
 	var docs []models.Document
-	// Order by updated_at desc
 	result := r.db.Where("owner_id = ?", ownerID).Order("updated_at desc").Find(&docs)
 	return docs, result.Error
+}
+
+func (r *postgresDocumentRepository) CountDocumentsByOwner(ownerID uuid.UUID) (int64, error) {
+	var count int64
+	result := r.db.Model(&models.Document{}).Where("owner_id = ?", ownerID).Count(&count)
+	return count, result.Error
 }
 
 func (r *postgresDocumentRepository) UpdateDocument(doc *models.Document) error {
@@ -55,7 +61,6 @@ func (r *postgresDocumentRepository) DeleteDocument(id uuid.UUID) error {
 
 func (r *postgresDocumentRepository) GetDocumentWithShares(id uuid.UUID) (*models.Document, error) {
 	var doc models.Document
-	// Preload shares to check permissions if needed
 	result := r.db.Preload("Shares").First(&doc, "id = ?", id)
 	if result.Error != nil {
 		return nil, result.Error

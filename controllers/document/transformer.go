@@ -7,13 +7,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/personal-stakshi/draftly/backend/models"
+	"github.com/personal-stakshi/draftly/backend/sanitize"
+	"github.com/personal-stakshi/draftly/backend/services"
 )
 
 type DocumentResponse struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	Content   string `json:"content"`
-	Role      string `json:"role,omitempty"` // "owner", "editor", "viewer"
+	Role      string `json:"role,omitempty"` // owner, editor or viewer
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
@@ -33,7 +35,8 @@ func transformDocument(doc *models.Document, role string) DocumentResponse {
 	return DocumentResponse{
 		ID:        doc.ID.String(),
 		Title:     doc.Title,
-		Content:   doc.Content,
+		// also clean rows saved before we sanitized on write
+		Content:   sanitize.HTML(doc.Content),
 		Role:      role,
 		CreatedAt: doc.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: doc.UpdatedAt.Format(time.RFC3339),
@@ -46,6 +49,8 @@ func SendDocumentResponse(c *gin.Context, doc *models.Document, role string, err
 		errStr := err.Error()
 		if errStr == "document not found" {
 			status = http.StatusNotFound
+		} else if errStr == services.ErrDocumentLimitReached.Error() {
+			status = http.StatusForbidden
 		} else if strings.Contains(errStr, "access denied") || strings.Contains(errStr, "permission denied") {
 			status = http.StatusForbidden
 		} else {
@@ -81,7 +86,7 @@ func SendListDocumentsResponse(c *gin.Context, myDocs []models.Document, sharedD
 
 	sharedDocsResp := make([]DocumentResponse, len(sharedDocs))
 	for i, d := range sharedDocs {
-		// TODO: Role needs to be fetched from share logic
+		// todo: fetch teh real role from the share entry
 		sharedDocsResp[i] = transformDocument(&d, "viewer") 
 	}
 
