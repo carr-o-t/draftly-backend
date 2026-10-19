@@ -88,7 +88,7 @@ func (r *postgresPermissionRepository) UpdateAccessRequest(req *models.AccessReq
 
 func (r *postgresPermissionRepository) ListAccessRequests(userID uuid.UUID) ([]models.AccessRequest, error) {
 	var reqs []models.AccessRequest
-	err := r.db.Preload("Document").Where("requester_id = ?", userID).Order("created_at desc").Find(&reqs).Error
+	err := r.db.Preload("Document").Preload("Requester").Where("requester_id = ?", userID).Order("created_at desc").Find(&reqs).Error
 	return reqs, err
 }
 
