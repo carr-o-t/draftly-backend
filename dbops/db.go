@@ -23,13 +23,12 @@ func ConnectDatabase(cfg *config.Config) {
 		DSN:                  dsn,
 		PreferSimpleProtocol: true, 
 	}), &gorm.Config{
-		PrepareStmt: false, // no gorm statement caching
+		PrepareStmt: false,
 	})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// create or update tables
 	err = database.AutoMigrate(
 		&models.User{},
 		&models.Document{},

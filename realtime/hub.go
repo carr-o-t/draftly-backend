@@ -8,7 +8,6 @@ import (
 )
 
 type Hub struct {
-	// active rooms
 	rooms map[uuid.UUID]*Room
 	mu    sync.RWMutex
 }

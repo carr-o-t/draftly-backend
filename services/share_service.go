@@ -22,8 +22,6 @@ type ShareService interface {
 	RequestAccess(documentID, requesterID uuid.UUID, role models.ShareRole) error
 	HandleAccessRequest(requestID, ownerID uuid.UUID, action models.RequestStatus, role models.ShareRole) error
 	ListRequests(userID uuid.UUID) (sent []models.AccessRequest, received []models.AccessRequest, err error)
-	
-	// share token access
 	AccessByToken(token string, userID uuid.UUID) (*models.Document, error)
 }
 
@@ -44,7 +42,6 @@ func NewShareService(permRepo dbops.PermissionRepository, docRepo dbops.Document
 }
 
 func (s *shareService) InviteUsers(documentID uuid.UUID, ownerID uuid.UUID, invites []InviteRequestItem) ([]string, error) {
-	// 1. only the owner can invite
 	doc, err := s.docRepo.GetDocumentByID(documentID)
 	if err != nil {
 		return nil, err
@@ -55,7 +52,6 @@ func (s *shareService) InviteUsers(documentID uuid.UUID, ownerID uuid.UUID, invi
 
 	invitedEmails := []string{}
 
-	// 2. go through each invite
 	for _, invite := range invites {
 		user, err := s.userRepo.GetUserByEmail(invite.Email)
 		if err != nil {
@@ -66,7 +62,6 @@ func (s *shareService) InviteUsers(documentID uuid.UUID, ownerID uuid.UUID, invi
 			continue 
 		}
 
-		// role has to be viewer or editor
 		if invite.Role != "viewer" && invite.Role != "editor" {
 			continue // bad role, skip it
 		}
@@ -131,7 +126,6 @@ func (s *shareService) RequestAccess(documentID, requesterID uuid.UUID, role mod
 		if roleRank(perm.Role) >= roleRank(role) {
 			return errors.New("already has access")
 		}
-		// they have a lower role (viewer) and want to go up to editor
 	}
 
 	// dont save a second pending request for the same doc and role
@@ -144,7 +138,6 @@ func (s *shareService) RequestAccess(documentID, requesterID uuid.UUID, role mod
 		}
 	}
 
-	// save the request
 	req := &models.AccessRequest{
 		DocumentID:  documentID,
 		RequesterID: requesterID,
@@ -235,34 +228,30 @@ func (s *shareService) ListRequests(userID uuid.UUID) (sent []models.AccessReque
 }
 
 func (s *shareService) AccessByToken(token string, userID uuid.UUID) (*models.Document, error) {
-	// 1. check the token
 	share, err := s.shareRepo.GetShareByToken(token)
 	if err != nil {
 		return nil, errors.New("invalid or expired token")
 	}
 
-	// 2. make sure it has not expired
 	if time.Now().After(share.ExpiresAt) {
 		return nil, errors.New("token expired")
 	}
 
-	// 3. get the document
 	doc, err := s.docRepo.GetDocumentByID(share.DocumentID)
 	if err != nil {
 		return nil, errors.New("document not found")
 	}
 
-	// 4. if the user is the owner or already has a permission, let them in
+	// the owner or anyone with a permission can open it, nobody else
 	if doc.OwnerID == userID {
-		return doc, nil // owner always has access
+		return doc, nil
 	}
 
 	_, err = s.permRepo.GetPermission(share.DocumentID, userID)
 	if err == nil {
-		return doc, nil // has permission already
+		return doc, nil
 	}
 
-	// 5. no permission, so block them
 	return nil, errors.New("access denied: please request access from the document owner")
 }
 

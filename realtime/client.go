@@ -35,13 +35,11 @@ var upgrader = websocket.Upgrader{
 type Client struct {
 	hub *Hub
 
-	// the websocket connection
 	conn *websocket.Conn
 
 	// buffered channle of outbound messages
 	send chan []byte
 
-	// the room this client belongs to
 	room *Room
 
 	// viewers can receive but never send edits

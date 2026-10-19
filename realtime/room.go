@@ -52,7 +52,6 @@ func (r *Room) Run() {
 
 		case message := <-r.broadcast:
 			if message.TargetClient != nil {
-				// send to one client only
 				target := message.TargetClient
 				if _, ok := r.clients[target]; ok {
 					select {
@@ -88,7 +87,6 @@ func (r *Room) Run() {
 }
 
 func (r *Room) handleMessage(msg BroadcastMessage) {
-	// skip empty messages
 	if len(msg.Data) == 0 {
 		return
 	}
@@ -117,7 +115,6 @@ func (r *Room) loadHistory(client *Client) {
 		return
 	}
 
-	// send past updates to this client only
 	for _, u := range updates {
 		r.broadcast <- BroadcastMessage{TargetClient: client, Data: u.Data}
 	}

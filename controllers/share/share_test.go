@@ -43,10 +43,6 @@ func setupRouter() *gin.Engine {
 	return r
 }
 
-// func cleanupTestData(email string) {
-// 	database.DB.Where("email = ?", email).Delete(&models.User{})
-// }
-
 func TestSharePermissionFlow(t *testing.T) {
 	godotenv.Load("../../.env")
 	cfg := config.LoadConfig()

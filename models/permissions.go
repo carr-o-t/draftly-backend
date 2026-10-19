@@ -18,7 +18,7 @@ type AccessRequest struct {
 	ID          uuid.UUID     `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	DocumentID  uuid.UUID     `gorm:"type:uuid;not null;index" json:"document_id"`
 	RequesterID uuid.UUID     `gorm:"type:uuid;not null;index" json:"requester_id"`
-	Role        ShareRole     `gorm:"type:varchar(20);default:'viewer'" json:"role"` // viewer or editor
+	Role        ShareRole     `gorm:"type:varchar(20);default:'viewer'" json:"role"`
 	Status      RequestStatus `gorm:"type:varchar(20);default:'pending'" json:"status"`
 	CreatedAt   time.Time     `json:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at"`
@@ -32,7 +32,7 @@ type DocumentPermission struct {
 	ID         uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	DocumentID uuid.UUID `gorm:"type:uuid;not null;index" json:"document_id"`
 	UserID     uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
-	Role       ShareRole `gorm:"type:varchar(20);not null" json:"role"` // viewer or editor
+	Role       ShareRole `gorm:"type:varchar(20);not null" json:"role"`
 	CreatedAt  time.Time `json:"created_at"`
 
 	// relations

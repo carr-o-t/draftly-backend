@@ -23,13 +23,12 @@ func ConnectDatabase(cfg *config.Config) {
 		DSN:                  dsn,
 		PreferSimpleProtocol: true,
 	}), &gorm.Config{
-		PrepareStmt: false, // no gorm statement caching
+		PrepareStmt: false,
 	})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// create or update tables
 	err = database.AutoMigrate(
 		&models.User{},
 		&models.Document{},
@@ -53,15 +52,7 @@ func ResetDatabase() {
 		log.Fatal("Database not connected")
 	}
 
-	// drop tables children first, this order matters because of foreign keys:
-	// documentupdate -> document
-	// documentpermission -> document / user
-	// accessrequest -> document / user
-	// documentshare -> document
-	// version -> document
-	// document -> user
-	// ipusage
-	// user
+	// drop tables children first, this order matters because of foreign keys
 	err := DB.Migrator().DropTable(
 		&models.DocumentUpdate{},
 		&models.DocumentPermission{},
@@ -77,7 +68,6 @@ func ResetDatabase() {
 	}
 	log.Println("All tables dropped.")
 
-	// create the tables again
 	err = DB.AutoMigrate(
 		&models.User{},
 		&models.Document{},

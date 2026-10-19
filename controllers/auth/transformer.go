@@ -32,7 +32,6 @@ func SendAuthResponse(c *gin.Context, user *models.User, token string, isNew boo
 		case "failed to hash password", "failed to create user", "failed to generate token":
 			status = http.StatusInternalServerError
 		default:
-			// unknown errors just fall back to 500
 			status = http.StatusInternalServerError
 		}
 
@@ -43,7 +42,6 @@ func SendAuthResponse(c *gin.Context, user *models.User, token string, isNew boo
 		return
 	}
 
-	// all good
 	c.JSON(http.StatusOK, StandardResponse{
 		Success: true,
 		Data: &AuthResponseData{

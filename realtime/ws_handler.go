@@ -53,7 +53,6 @@ func ServeWs(hub *Hub, c *gin.Context) {
 		return
 	}
 
-	// upgrade the http connection to websocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Println(err)
@@ -71,7 +70,6 @@ func ServeWs(hub *Hub, c *gin.Context) {
 	}
 	client.room.register <- client
 
-	// do the rest of the work in background goroutines
 	go client.writePump()
 	go client.readPump()
 }

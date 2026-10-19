@@ -19,7 +19,6 @@ func main() {
 	database.ConnectDatabase(cfg)
 
 	log.Println("⚠️  WARNING: This will DROP ALL TABLES and DATA. Press Ctrl+C to cancel in 5 seconds...")
-	// time.Sleep(5 * time.Second) // uncomment if you want the safety delay
 
 	log.Println("Dropping tables...")
 
