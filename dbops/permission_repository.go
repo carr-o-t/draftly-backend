@@ -10,6 +10,7 @@ import (
 type PermissionRepository interface {
 	// permissions
 	CreatePermission(perm *models.DocumentPermission) error
+	UpdatePermission(perm *models.DocumentPermission) error
 	GetPermission(documentID, userID uuid.UUID) (*models.DocumentPermission, error)
 	ListPermissions(documentID uuid.UUID) ([]models.DocumentPermission, error)
 	DeletePermission(documentID, userID uuid.UUID) error
@@ -35,6 +36,10 @@ func NewPermissionRepository() PermissionRepository {
 
 func (r *postgresPermissionRepository) CreatePermission(perm *models.DocumentPermission) error {
 	return r.db.Create(perm).Error
+}
+
+func (r *postgresPermissionRepository) UpdatePermission(perm *models.DocumentPermission) error {
+	return r.db.Save(perm).Error
 }
 
 func (r *postgresPermissionRepository) GetPermission(documentID, userID uuid.UUID) (*models.DocumentPermission, error) {
