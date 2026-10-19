@@ -2,9 +2,15 @@ package share
 
 import (
 	"errors"
+	"fmt"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/personal-stakshi/draftly/backend/models"
+)
+
+const (
+	maxTokenLength = 128
 )
 
 type InviteRequestItem struct {
@@ -21,6 +27,11 @@ func ValidateInviteRequest(c *gin.Context) (*InviteUserRequest, error) {
 	}
 	if len(req) == 0 {
 		return nil, errors.New("at least one invite is required")
+	}
+	for _, item := range req {
+		if utf8.RuneCountInString(item.Email) > models.MaxEmailLength {
+			return nil, fmt.Errorf("email must be at most %d characters", models.MaxEmailLength)
+		}
 	}
 	return &req, nil
 }
@@ -51,6 +62,9 @@ func ValidateAccessTokenRequest(c *gin.Context) (*AccessTokenRequest, error) {
 	var req AccessTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		return nil, err
+	}
+	if utf8.RuneCountInString(req.Token) > maxTokenLength {
+		return nil, fmt.Errorf("token must be at most %d characters", maxTokenLength)
 	}
 	return &req, nil
 }
