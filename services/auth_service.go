@@ -34,13 +34,12 @@ func (s *authService) LoginOrRegister(email, password, ip string) (*models.User,
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// new user, so sign them up
 		
-		// 1. make sure this ip has not signed up too many times
+		// make sure this ip has not signed up too many times
 		ipUsage, err := s.userRepo.GetIPUsage(ip)
 		if err == nil && ipUsage.CreatedAccounts >= 3 {
 			return nil, "", false, errors.New("registration limit exceeded for this IP")
 		}
 
-		// 2. hash the password
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
 			return nil, "", false, errors.New("failed to hash password")
@@ -56,7 +55,7 @@ func (s *authService) LoginOrRegister(email, password, ip string) (*models.User,
 			return nil, "", false, errors.New("failed to create user")
 		}
 
-		// 3. record the signup against this ip
+		// record the signup against this ip
 		s.userRepo.IncrementIPUsage(ip)
 		isNewUser = true
 
@@ -69,7 +68,6 @@ func (s *authService) LoginOrRegister(email, password, ip string) (*models.User,
 		return nil, "", false, err
 	}
 
-	// make a token
 	token, err := utils.GenerateToken(user.ID, s.config)
 	if err != nil {
 		return nil, "", false, errors.New("failed to generate token")

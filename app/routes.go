@@ -11,17 +11,12 @@ import (
 )
 
 func SetupRoutes(r *gin.Engine, hub *realtime.Hub) {
-	// global middleware
 	// todo: add cors
-	// r.Use(CorsMiddleware())
 
-	// health check
 	r.GET("/health", health.HealthCheck)
 
-	// all v1 api routes
 	v1 := r.Group("/v1")
 	{
-		// auth
 		authGroup := v1.Group("/auth")
 		{
 			authGroup.POST("/login-or-register", auth.LoginOrRegister)
@@ -47,11 +42,7 @@ func SetupRoutes(r *gin.Engine, hub *realtime.Hub) {
 			docsGroup.POST("/:id/requests/:requestId", share.HandleRequest)
 		}
 		
-		// list of access requests
 		v1.GET("/access/requests", middleware.AuthMiddleware(), share.ListRequests)
-		
-
-		// access a doc through a share token
 		v1.POST("/share/access", middleware.AuthMiddleware(), share.AccessByToken)
 	}
 

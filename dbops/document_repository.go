@@ -40,7 +40,6 @@ func (r *postgresDocumentRepository) GetDocumentByID(id uuid.UUID) (*models.Docu
 
 func (r *postgresDocumentRepository) ListDocumentsByOwner(ownerID uuid.UUID) ([]models.Document, error) {
 	var docs []models.Document
-	// newest first
 	result := r.db.Where("owner_id = ?", ownerID).Order("updated_at desc").Find(&docs)
 	return docs, result.Error
 }
@@ -55,7 +54,6 @@ func (r *postgresDocumentRepository) DeleteDocument(id uuid.UUID) error {
 
 func (r *postgresDocumentRepository) GetDocumentWithShares(id uuid.UUID) (*models.Document, error) {
 	var doc models.Document
-	// load shares too so callers can check access
 	result := r.db.Preload("Shares").First(&doc, "id = ?", id)
 	if result.Error != nil {
 		return nil, result.Error

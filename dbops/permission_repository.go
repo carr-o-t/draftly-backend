@@ -8,7 +8,6 @@ import (
 )
 
 type PermissionRepository interface {
-	// permissions
 	CreatePermission(perm *models.DocumentPermission) error
 	UpdatePermission(perm *models.DocumentPermission) error
 	GetPermission(documentID, userID uuid.UUID) (*models.DocumentPermission, error)
@@ -16,7 +15,6 @@ type PermissionRepository interface {
 	DeletePermission(documentID, userID uuid.UUID) error
 	ListSharedDocuments(userID uuid.UUID) ([]models.DocumentPermission, error)
 
-	// access requests
 	CreateAccessRequest(req *models.AccessRequest) error
 	GetAccessRequest(id uuid.UUID) (*models.AccessRequest, error)
 	UpdateAccessRequest(req *models.AccessRequest) error
@@ -93,12 +91,9 @@ func (r *postgresPermissionRepository) ListAccessRequests(userID uuid.UUID) ([]m
 }
 
 func (r *postgresPermissionRepository) ListPendingRequestsForDocs(ownerID uuid.UUID) ([]models.AccessRequest, error) {
-	// find requests where the document owner is ownerID
 	var reqs []models.AccessRequest
-	// join documents so we can filter on the owner
 	err := r.db.Joins("Document").
 		Preload("Requester").
-		// Where("status = ?", models.StatusPending).
 		Where("\"Document\".owner_id = ?", ownerID). // table alias is case sensitive here
 		Order("created_at desc").
 		Find(&reqs).Error

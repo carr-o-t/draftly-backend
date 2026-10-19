@@ -25,9 +25,7 @@ func setupRouter() *gin.Engine {
 
 // helper to clean up test data
 func cleanupTestData(email, ip string) {
-	// delete the test user
 	database.DB.Where("email = ?", email).Delete(&models.User{})
-	// delete the test ip usage
 	database.DB.Where("ip_address = ?", ip).Delete(&models.IPUsage{})
 }
 

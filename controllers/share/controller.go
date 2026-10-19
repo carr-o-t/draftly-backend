@@ -179,7 +179,6 @@ func AccessByToken(c *gin.Context) {
 		return
 	}
 
-	// send back the document info
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{

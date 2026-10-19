@@ -48,7 +48,6 @@ func (s *documentService) CreateDocument(ownerID uuid.UUID, title string) (*mode
 		return nil, err
 	}
 
-	// make a share token
 	token := generateSecureToken()
 	
 	share := &models.DocumentShare{
@@ -78,31 +77,26 @@ func (s *documentService) GetDocument(id uuid.UUID, userID uuid.UUID) (*models.D
 		return nil, "", err
 	}
 
-	// 1. owner check
 	if doc.OwnerID == userID {
 		return doc, "owner", nil
 	}
 
-	// 2. direct invite check
 	perm, err := s.permRepo.GetPermission(id, userID)
 	if err == nil {
 		return doc, string(perm.Role), nil
 	}
 
-	// 3. no owner or permission found.
-	// the share token just locates the document, it does not grant any role.
-	// users need an explicit permission here, otherwise they have to request access.
+	// the share token just locates the document, it does not grant any role,
+	// users need an explicit permission or they have to request access
 	return nil, "", errors.New("access denied")
 }
 
 func (s *documentService) ListDocuments(userID uuid.UUID) ([]models.Document, []models.Document, error) {
-	// docs i own
 	myDocs, err := s.docRepo.ListDocumentsByOwner(userID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// docs shared with me
 	perms, err := s.permRepo.ListSharedDocuments(userID)
 	if err != nil {
 		return nil, nil, err
@@ -152,7 +146,6 @@ func (s *documentService) AutoSave(id uuid.UUID, userID uuid.UUID, content strin
 		return nil, errors.New("permission denied")
 	}
 	
-	// autosave only touches content
 	doc.Content = content
 	doc.UpdatedAt = time.Now()
 	

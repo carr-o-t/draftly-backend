@@ -12,14 +12,11 @@ import (
 )
 
 func main() {
-	// command line flags
 	resetPtr := flag.Bool("reset", false, "Reset the database (drop all tables)")
 	flag.Parse()
 
-	// load config
 	cfg := config.LoadConfig()
 
-	// connect to the database
 	database.ConnectDatabase(cfg)
 
 	if *resetPtr {
@@ -29,17 +26,13 @@ func main() {
 		return
 	}
 
-	// set up the gin router
 	r := gin.Default()
 
-	// set up the realtime hub
 	hub := realtime.NewHub()
-	// the hub has no run loop of its own, each room runs its own loop
+	// each room in hub runs its own loop
 
-	// register all routes
 	app.SetupRoutes(r, hub)
 
-	// start the server
 	log.Printf("Server starting on port %s", cfg.ServerPort)
 	if err := r.Run(":" + cfg.ServerPort); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

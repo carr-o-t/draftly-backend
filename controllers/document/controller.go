@@ -80,7 +80,6 @@ func UpdateDocument(c *gin.Context) {
 	svc := services.NewDocumentService(repo, shareRepo, permRepo)
 
 	doc, err := svc.UpdateDocument(id, userID, req.Title, req.Content)
-	// if it worked the role already had edit rights
 	SendDocumentResponse(c, doc, "", err) 
 }
 
