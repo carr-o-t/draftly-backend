@@ -39,7 +39,6 @@ func UpdateIPUsage(ipUsage *models.IPUsage) error {
 	return database.DB.Save(ipUsage).Error
 }
 
-// Logic extracted from original controller
 func IncrementIPUsage(ip string) error {
 	ipUsage, err := GetIPUsage(ip)
 	if errors.Is(err, gorm.ErrRecordNotFound) {

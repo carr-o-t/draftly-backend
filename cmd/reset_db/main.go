@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	// Load .env relative to this file location or root
+	// load .env, path is relative to this file
 	if err := godotenv.Load("../../.env"); err != nil {
 		log.Println("Warning: Error loading .env file")
 	}
@@ -19,12 +19,11 @@ func main() {
 	database.ConnectDatabase(cfg)
 
 	log.Println("⚠️  WARNING: This will DROP ALL TABLES and DATA. Press Ctrl+C to cancel in 5 seconds...")
-	// time.Sleep(5 * time.Second) // Uncomment for safety in prod scripts, removed for dev speed
 
 	log.Println("Dropping tables...")
 
-	// Drop in reverse order of dependency
-	// Permissions/Shares depend on Documents/Users
+	// drop children before parents
+	// permissions and shares depend on documents and users
 	database.DB.Migrator().DropTable(&models.AccessRequest{})
 	database.DB.Migrator().DropTable(&models.DocumentPermission{})
 	database.DB.Migrator().DropTable(&models.DocumentShare{})
@@ -34,10 +33,8 @@ func main() {
 	database.DB.Migrator().DropTable(&models.User{})
 
 	log.Println("Running AutoMigrate...")
-	// Re-run migration logic (calls AutoMigrate internally in ConnectDatabase, but we can be explicit or just rely on it if we reconnect, 
-	// actually ConnectDatabase CALLS AutoMigrate. 
-	// But since we just dropped them after connection, we need to call it again.
-	
+	// conndatabase already migrates, but we dropped the tables after connecting,
+	// so we have to run it again here
 	err := database.DB.AutoMigrate(
 		&models.User{},
 		&models.Document{},

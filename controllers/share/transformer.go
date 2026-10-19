@@ -19,6 +19,7 @@ type AccessRequestResponse struct {
 	DocID     string `json:"document_id"`
 	DocTitle  string `json:"doc_title,omitempty"`
 	RequesterID string `json:"requester_id"`
+	RequesterEmail string `json:"requester_email"`
 	Requester string `json:"requester_name,omitempty"`
 	Status    string `json:"status"`
 	Role      string `json:"role"`
@@ -49,7 +50,7 @@ func SendErrorResponse(c *gin.Context, err error) {
 			status = http.StatusUnauthorized
 		} else if msg == "document not found" || msg == "request not found" {
 			status = http.StatusNotFound
-		} else if msg == "already has access" {
+		} else if msg == "already has access" || msg == "request already pending" {
 			status = http.StatusConflict
 		} else if msg == "invalid or expired token" {
 			status = http.StatusUnauthorized
@@ -69,7 +70,7 @@ func TransformPermissions(perms []models.DocumentPermission) []PermissionRespons
 	for i, p := range perms {
 		resp[i] = PermissionResponse{
 			UserID: p.UserID.String(),
-			Email:  p.User.Email, // Requires Preload
+			Email:  p.User.Email, // loaded with preload
 			Name:   p.User.Name,
 			Role:   string(p.Role),
 		}
@@ -83,9 +84,10 @@ func TransformRequests(reqs []models.AccessRequest) []AccessRequestResponse {
 		resp[i] = AccessRequestResponse{
 			ID:          r.ID.String(),
 			DocID:       r.DocumentID.String(),
-			DocTitle:    r.Document.Title, // Requires Preload
+			DocTitle:    r.Document.Title, // loaded with preload
 			RequesterID: r.RequesterID.String(),
-			Requester:   r.Requester.Name, // Requires Preload
+			RequesterEmail: r.Requester.Email, // loaded with preload
+			Requester:   r.Requester.Name, // loaded with preload
 			Status:      string(r.Status),
 			Role:      string(r.Role),
 			CreatedAt: r.CreatedAt.String(),

@@ -34,11 +34,7 @@ func InviteUsers(c *gin.Context) {
 	userID := c.MustGet("user_id").(uuid.UUID)
 	svc := InitService()
 
-	// Map Validator Struct to Service Struct (or reuse if same package/exported)
-	// We defined InviteRequestItem in Service (interface) and Validator (struct). 
-	// Simplest is to map or use duplicated struct.
-	// Let's map.
-	
+	// validator uses one struct, service uses another, so map them here
 	serviceInvites := make([]services.InviteRequestItem, len(*req))
 	for i, item := range *req {
 		serviceInvites[i] = services.InviteRequestItem{
@@ -183,7 +179,6 @@ func AccessByToken(c *gin.Context) {
 		return
 	}
 
-	// Return document info
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{

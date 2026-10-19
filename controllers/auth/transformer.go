@@ -21,7 +21,7 @@ type StandardResponse struct {
 
 func SendAuthResponse(c *gin.Context, user *models.User, token string, isNew bool, err error) {
 	if err != nil {
-		// Error Handling Logic strictly within Transformer
+		// map errors to http status codes
 		status := http.StatusInternalServerError
 		
 		switch err.Error() {
@@ -32,8 +32,6 @@ func SendAuthResponse(c *gin.Context, user *models.User, token string, isNew boo
 		case "failed to hash password", "failed to create user", "failed to generate token":
 			status = http.StatusInternalServerError
 		default:
-			// Default to Internal Server Error for unmapped errors
-			// just return the error message securely.
 			status = http.StatusInternalServerError
 		}
 
@@ -44,7 +42,6 @@ func SendAuthResponse(c *gin.Context, user *models.User, token string, isNew boo
 		return
 	}
 
-	// Success Response
 	c.JSON(http.StatusOK, StandardResponse{
 		Success: true,
 		Data: &AuthResponseData{

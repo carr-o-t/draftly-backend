@@ -22,8 +22,6 @@ type ShareService interface {
 	RequestAccess(documentID, requesterID uuid.UUID, role models.ShareRole) error
 	HandleAccessRequest(requestID, ownerID uuid.UUID, action models.RequestStatus, role models.ShareRole) error
 	ListRequests(userID uuid.UUID) (sent []models.AccessRequest, received []models.AccessRequest, err error)
-	
-	// Token Access
 	AccessByToken(token string, userID uuid.UUID) (*models.Document, error)
 }
 
@@ -44,7 +42,6 @@ func NewShareService(permRepo dbops.PermissionRepository, docRepo dbops.Document
 }
 
 func (s *shareService) InviteUsers(documentID uuid.UUID, ownerID uuid.UUID, invites []InviteRequestItem) ([]string, error) {
-	// 1. Check Ownership
 	doc, err := s.docRepo.GetDocumentByID(documentID)
 	if err != nil {
 		return nil, err
@@ -55,23 +52,21 @@ func (s *shareService) InviteUsers(documentID uuid.UUID, ownerID uuid.UUID, invi
 
 	invitedEmails := []string{}
 
-	// 2. Process Invites
 	for _, invite := range invites {
 		user, err := s.userRepo.GetUserByEmail(invite.Email)
 		if err != nil {
-			continue // Skip if not found
+			continue // no such user, skip it
 		}
 
 		if user.ID == ownerID {
 			continue 
 		}
 
-		// Validate Role
 		if invite.Role != "viewer" && invite.Role != "editor" {
-			continue // Skip invalid role
+			continue // bad role, skip it
 		}
 
-		// Update or Create Permission
+		// swap out any old permission for this user
 		_, err = s.permRepo.GetPermission(documentID, user.ID)
 		if err == nil {
 			s.permRepo.DeletePermission(documentID, user.ID)
@@ -117,7 +112,7 @@ func (s *shareService) RevokeAccess(documentID, ownerID, targetUserID uuid.UUID)
 }
 
 func (s *shareService) RequestAccess(documentID, requesterID uuid.UUID, role models.ShareRole) error {
-	// Check if doc exists
+	// make shure the doc is there
 	doc, err := s.docRepo.GetDocumentByID(documentID)
 	if err != nil {
 		return errors.New("document not found")
@@ -126,13 +121,23 @@ func (s *shareService) RequestAccess(documentID, requesterID uuid.UUID, role mod
 		return errors.New("cannot request access to own document")
 	}
 
-	// Check if already has permission
-	_, err = s.permRepo.GetPermission(documentID, requesterID)
-	if err == nil {
-		return errors.New("already has access")
+	// if they already have access, only let them ask for a higher role
+	if perm, err := s.permRepo.GetPermission(documentID, requesterID); err == nil {
+		if roleRank(perm.Role) >= roleRank(role) {
+			return errors.New("already has access")
+		}
 	}
 
-	// Create Request
+	// dont save a second pending request for the same doc and role
+	existing, err := s.permRepo.ListAccessRequests(requesterID)
+	if err == nil {
+		for _, r := range existing {
+			if r.DocumentID == documentID && r.Status == models.StatusPending && r.Role == role {
+				return errors.New("request already pending")
+			}
+		}
+	}
+
 	req := &models.AccessRequest{
 		DocumentID:  documentID,
 		RequesterID: requesterID,
@@ -145,13 +150,21 @@ func (s *shareService) RequestAccess(documentID, requesterID uuid.UUID, role mod
 	return s.permRepo.CreateAccessRequest(req)
 }
 
+// roleRank gives each role a number so we can compare who has more access
+func roleRank(r models.ShareRole) int {
+	if r == models.RoleEditor {
+		return 2
+	}
+	return 1 // viewer
+}
+
 func (s *shareService) HandleAccessRequest(requestID, ownerID uuid.UUID, action models.RequestStatus, role models.ShareRole) error {
 	req, err := s.permRepo.GetAccessRequest(requestID)
 	if err != nil {
 		return err
 	}
 
-	// Verify Owner of the *Document* associated with request
+	// make sure the owner making the call is the owner of this document
 	doc, err := s.docRepo.GetDocumentByID(req.DocumentID)
 	if err != nil {
 		return err
@@ -168,15 +181,32 @@ func (s *shareService) HandleAccessRequest(requestID, ownerID uuid.UUID, action 
 	req.UpdatedAt = time.Now()
 
 	if action == models.StatusApproved {
-		// Create Permission
-		perm := &models.DocumentPermission{
-			DocumentID: req.DocumentID,
-			UserID:     req.RequesterID,
-			Role:       role,
-			CreatedAt:  time.Now(),
+		// the owner role wins, otherwise use the role the requester asked for
+		grantRole := role
+		if grantRole == "" {
+			grantRole = req.Role
 		}
-		if err := s.permRepo.CreatePermission(perm); err != nil {
-			return err
+		if grantRole == "" {
+			grantRole = models.RoleViewer
+		}
+		// if they already have a permission row for this document, update its
+		// role instead of adding a second row, otherwise the same document
+		// shows up twice and the lower role can keep them read only.
+		if perm, err := s.permRepo.GetPermission(req.DocumentID, req.RequesterID); err == nil {
+			perm.Role = grantRole
+			if err := s.permRepo.UpdatePermission(perm); err != nil {
+				return err
+			}
+		} else {
+			perm := &models.DocumentPermission{
+				DocumentID: req.DocumentID,
+				UserID:     req.RequesterID,
+				Role:       grantRole,
+				CreatedAt:  time.Now(),
+			}
+			if err := s.permRepo.CreatePermission(perm); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -198,34 +228,30 @@ func (s *shareService) ListRequests(userID uuid.UUID) (sent []models.AccessReque
 }
 
 func (s *shareService) AccessByToken(token string, userID uuid.UUID) (*models.Document, error) {
-	// 1. Validate Token
 	share, err := s.shareRepo.GetShareByToken(token)
 	if err != nil {
 		return nil, errors.New("invalid or expired token")
 	}
 
-	// 2. Check Expiry
 	if time.Now().After(share.ExpiresAt) {
 		return nil, errors.New("token expired")
 	}
 
-	// 3. Get Document
 	doc, err := s.docRepo.GetDocumentByID(share.DocumentID)
 	if err != nil {
 		return nil, errors.New("document not found")
 	}
 
-	// 4. Check if user already has permission or is owner
+	// the owner or anyone with a permission can open it, nobody else
 	if doc.OwnerID == userID {
-		return doc, nil // Owner always has access
+		return doc, nil
 	}
 
 	_, err = s.permRepo.GetPermission(share.DocumentID, userID)
 	if err == nil {
-		return doc, nil // Already has permission
+		return doc, nil
 	}
 
-	// 5. User doesn't have permission - deny access
 	return nil, errors.New("access denied: please request access from the document owner")
 }
 

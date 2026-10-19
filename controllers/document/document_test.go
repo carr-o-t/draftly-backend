@@ -16,16 +16,14 @@ import (
 	"github.com/personal-stakshi/draftly/backend/models"
 )
 
-// Setup Router
+// set up the router
 func setupRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
 	
-	// Mock Auth Middleware by setting user_id in context
+	// fake the auth middleware by putting user_id in the context
 	r.Use(func(c *gin.Context) {
-		// Default to Test User ID
-		// In real usage we might want to vary this, but for simple CRUD tests we can assume "current user" is the test user
-		// We can inject it via header if needed, but for simplicity:
+		// the test sends the user id in a header, which we read here
 		userIDStr := c.GetHeader("X-Test-User-ID")
 		if userIDStr != "" {
 			uid, _ := uuid.Parse(userIDStr)
@@ -42,7 +40,7 @@ func setupRouter() *gin.Engine {
 }
 
 func cleanupTestData(email string) {
-	// With OnDelete:CASCADE, deleting user should delete documents automatically
+	// deleting the user cascades and removes their documents too
 	database.DB.Where("email = ?", email).Delete(&models.User{})
 }
 
@@ -55,7 +53,7 @@ func TestDocumentCRUD(t *testing.T) {
 	cleanupTestData(testEmail)
 	defer cleanupTestData(testEmail)
 
-	// Create a dummy user for testing
+	// make a throwaway user for the test
 	user := models.User{
 		Email:        testEmail,
 		PasswordHash: "hash",
@@ -67,7 +65,7 @@ func TestDocumentCRUD(t *testing.T) {
 	
 	var createdDocID string
 
-	// 1. Create Document
+	// 1. create a document
 	t.Run("Create Document", func(t *testing.T) {
 		reqBody := map[string]string{
 			"title": "My Test Doc",
@@ -92,7 +90,7 @@ func TestDocumentCRUD(t *testing.T) {
 		}
 	})
 
-	// 2. Get Document
+	// 2. fetch the document
 	t.Run("Get Document", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/documents/"+createdDocID, nil)
 		req.Header.Set("X-Test-User-ID", user.ID.String())
@@ -104,7 +102,7 @@ func TestDocumentCRUD(t *testing.T) {
 		}
 	})
 
-	// 3. Update Document
+	// 3. update the document
 	t.Run("Update Document", func(t *testing.T) {
 		reqBody := map[string]string{
 			"title":   "Updated Title",
@@ -120,7 +118,7 @@ func TestDocumentCRUD(t *testing.T) {
 			t.Errorf("Expected 200, got %d", w.Code)
 		}
 		
-		// Verify update
+		// check it actually updated
 		var resp map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &resp)
 		data := resp["data"].(map[string]interface{})
@@ -132,7 +130,7 @@ func TestDocumentCRUD(t *testing.T) {
 		}
 	})
 
-	// 4. Delete Document
+	// 4. delete the document
 	t.Run("Delete Document", func(t *testing.T) {
 		req, _ := http.NewRequest("DELETE", "/documents/"+createdDocID, nil)
 		req.Header.Set("X-Test-User-ID", user.ID.String())
@@ -143,7 +141,7 @@ func TestDocumentCRUD(t *testing.T) {
 			t.Errorf("Expected 200, got %d", w.Code)
 		}
 		
-		// Verify deletion
+		// check it is really gone
 		req2, _ := http.NewRequest("GET", "/documents/"+createdDocID, nil)
 		req2.Header.Set("X-Test-User-ID", user.ID.String())
 		w2 := httptest.NewRecorder()

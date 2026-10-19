@@ -20,7 +20,7 @@ import (
 func setupAccessTokenRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	
+
 	r.Use(func(c *gin.Context) {
 		userIDStr := c.GetHeader("X-Test-User-ID")
 		if userIDStr != "" {
@@ -34,8 +34,28 @@ func setupAccessTokenRouter() *gin.Engine {
 	return r
 }
 
-
+// remove the test user and everything they own
 func cleanupTestData(email string) {
+	var userIDs []uuid.UUID
+	database.DB.Model(&models.User{}).Where("email = ?", email).Pluck("id", &userIDs)
+	if len(userIDs) == 0 {
+		return
+	}
+
+	var docIDs []uuid.UUID
+	database.DB.Model(&models.Document{}).Where("owner_id IN ?", userIDs).Pluck("id", &docIDs)
+
+	if len(docIDs) > 0 {
+		database.DB.Where("document_id IN ?", docIDs).Delete(&models.DocumentPermission{})
+		database.DB.Where("document_id IN ?", docIDs).Delete(&models.AccessRequest{})
+		database.DB.Where("document_id IN ?", docIDs).Delete(&models.DocumentShare{})
+		database.DB.Where("document_id IN ?", docIDs).Delete(&models.Version{})
+		database.DB.Where("document_id IN ?", docIDs).Delete(&models.DocumentUpdate{})
+		database.DB.Where("id IN ?", docIDs).Delete(&models.Document{})
+	}
+
+	database.DB.Where("user_id IN ?", userIDs).Delete(&models.DocumentPermission{})
+	database.DB.Where("requester_id IN ?", userIDs).Delete(&models.AccessRequest{})
 	database.DB.Where("email = ?", email).Delete(&models.User{})
 }
 
@@ -52,7 +72,7 @@ func TestAccessByToken(t *testing.T) {
 	defer cleanupTestData(ownerEmail)
 	defer cleanupTestData(accessorEmail)
 
-	// Setup
+	// set up test users and doc
 	owner := models.User{Email: ownerEmail, Name: "Owner", PasswordHash: "hash"}
 	accessor := models.User{Email: accessorEmail, Name: "Accessor", PasswordHash: "hash"}
 	database.DB.Create(&owner)
@@ -61,7 +81,7 @@ func TestAccessByToken(t *testing.T) {
 	doc := models.Document{OwnerID: owner.ID, Title: "Token Test Doc"}
 	database.DB.Create(&doc)
 
-	// Create share token
+	// make a share token
 	share := models.DocumentShare{
 		DocumentID: doc.ID,
 		Token:      "test-token-12345",
@@ -81,14 +101,14 @@ func TestAccessByToken(t *testing.T) {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
-		// User doesn't have permission, should get 401
+		// since they have no permission, so we expect a 401
 		if w.Code != http.StatusUnauthorized {
 			t.Errorf("Expected 401, got %d. Body: %s", w.Code, w.Body.String())
 		}
 
 		var resp map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		
+
 		if resp["success"] != false {
 			t.Error("Expected success to be false")
 		}
