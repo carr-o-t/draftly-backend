@@ -12,6 +12,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// max docs a single user can own
+const MaxDocumentsPerUser = 5
+
+var ErrDocumentLimitReached = errors.New("Document limit reached. Max 5 documents are allowed per user")
+
 type DocumentService interface {
 	CreateDocument(ownerID uuid.UUID, title string) (*models.Document, error)
 	GetDocument(id uuid.UUID, userID uuid.UUID) (*models.Document, string, error) // returns doc, role, error
@@ -36,6 +41,14 @@ func NewDocumentService(repo dbops.DocumentRepository, shareRepo dbops.ShareRepo
 }
 
 func (s *documentService) CreateDocument(ownerID uuid.UUID, title string) (*models.Document, error) {
+	count, err := s.docRepo.CountDocumentsByOwner(ownerID)
+	if err != nil {
+		return nil, err
+	}
+	if count >= MaxDocumentsPerUser {
+		return nil, ErrDocumentLimitReached
+	}
+
 	if title == "" {
 		title = "Untitled Document"
 	}
@@ -49,7 +62,7 @@ func (s *documentService) CreateDocument(ownerID uuid.UUID, title string) (*mode
 	}
 
 	token := generateSecureToken()
-	
+
 	share := &models.DocumentShare{
 		DocumentID: doc.ID,
 		Token:      token,
@@ -101,7 +114,7 @@ func (s *documentService) ListDocuments(userID uuid.UUID) ([]models.Document, []
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	sharedDocs := make([]models.Document, len(perms))
 	for i, p := range perms {
 		// document is preloaded by ListSharedDocuments
@@ -116,7 +129,7 @@ func (s *documentService) UpdateDocument(id uuid.UUID, userID uuid.UUID, title, 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if role != "owner" && role != "editor" {
 		return nil, errors.New("permission denied")
 	}
@@ -145,10 +158,10 @@ func (s *documentService) AutoSave(id uuid.UUID, userID uuid.UUID, content strin
 	if role != "owner" && role != "editor" {
 		return nil, errors.New("permission denied")
 	}
-	
+
 	doc.Content = content
 	doc.UpdatedAt = time.Now()
-	
+
 	if err := s.docRepo.UpdateDocument(doc); err != nil {
 		return nil, err
 	}

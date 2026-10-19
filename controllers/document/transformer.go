@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/personal-stakshi/draftly/backend/models"
+	"github.com/personal-stakshi/draftly/backend/services"
 )
 
 type DocumentResponse struct {
@@ -46,6 +47,8 @@ func SendDocumentResponse(c *gin.Context, doc *models.Document, role string, err
 		errStr := err.Error()
 		if errStr == "document not found" {
 			status = http.StatusNotFound
+		} else if errStr == services.ErrDocumentLimitReached.Error() {
+			status = http.StatusForbidden
 		} else if strings.Contains(errStr, "access denied") || strings.Contains(errStr, "permission denied") {
 			status = http.StatusForbidden
 		} else {
