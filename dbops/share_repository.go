@@ -10,7 +10,7 @@ import (
 type ShareRepository interface {
 	CreateShare(share *models.DocumentShare) error
 	GetShareByToken(token string) (*models.DocumentShare, error)
-	DeleteShare(documentID uuid.UUID) error // Revoke all for doc? or by token? Assuming one active link for MVP simplicity
+	DeleteShare(documentID uuid.UUID) error // removes all shares for a doc, we only keep one link for now
 	GetActiveShare(documentID uuid.UUID) (*models.DocumentShare, error)
 }
 

@@ -7,7 +7,7 @@ import (
 )
 
 type CreateDocumentRequest struct {
-	Title string `json:"title"` // Optional
+	Title string `json:"title"` // not required
 }
 
 type UpdateDocumentRequest struct {

@@ -12,7 +12,7 @@ type InviteRequestItem struct {
 	Role  string `json:"role" binding:"required,oneof=viewer editor"`
 }
 
-type InviteUserRequest []InviteRequestItem // Array root
+type InviteUserRequest []InviteRequestItem // this one is a json array at the top level
 
 func ValidateInviteRequest(c *gin.Context) (*InviteUserRequest, error) {
 	var req InviteUserRequest
@@ -27,7 +27,7 @@ func ValidateInviteRequest(c *gin.Context) (*InviteUserRequest, error) {
 
 type HandleRequestInput struct {
 	Action string `json:"action" binding:"required,oneof=approved rejected"`
-	Role   string `json:"role"` // Optional if rejected, required if approved
+	Role   string `json:"role"` // optional when rejecting, required when approving
 }
 
 func ValidateHandleRequest(c *gin.Context) (*HandleRequestInput, error) {

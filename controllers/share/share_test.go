@@ -14,14 +14,15 @@ import (
 	"github.com/personal-stakshi/draftly/backend/controllers/share"
 	"github.com/personal-stakshi/draftly/backend/database"
 	"github.com/personal-stakshi/draftly/backend/models"
+
 )
 
-// Setup Router
+// set up the router
 func setupRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
 	
-	// Mock Auth Middleware
+	// fake the auth middleware
 	r.Use(func(c *gin.Context) {
 		userIDStr := c.GetHeader("X-Test-User-ID")
 		if userIDStr != "" {
@@ -42,9 +43,9 @@ func setupRouter() *gin.Engine {
 	return r
 }
 
-func cleanupTestData(email string) {
-	database.DB.Where("email = ?", email).Delete(&models.User{})
-}
+// func cleanupTestData(email string) {
+// 	database.DB.Where("email = ?", email).Delete(&models.User{})
+// }
 
 func TestSharePermissionFlow(t *testing.T) {
 	godotenv.Load("../../.env")
@@ -62,7 +63,7 @@ func TestSharePermissionFlow(t *testing.T) {
 	defer cleanupTestData(invitedEmail)
 	defer cleanupTestData(requesterEmail)
 
-	// 1. Setup Users
+	// 1. make the users
 	owner := models.User{Email: ownerEmail, Name: "Owner", PasswordHash: "hash"}
 	invited := models.User{Email: invitedEmail, Name: "Invited", PasswordHash: "hash"}
 	requester := models.User{Email: requesterEmail, Name: "Requester", PasswordHash: "hash"}
@@ -71,13 +72,13 @@ func TestSharePermissionFlow(t *testing.T) {
 	database.DB.Create(&invited)
 	database.DB.Create(&requester)
 
-	// 2. Setup Document
+	// 2. make the document
 	doc := models.Document{OwnerID: owner.ID, Title: "Permission Doc"}
 	database.DB.Create(&doc)
 
 	r := setupRouter()
 
-	// --- TEST 1: Invite User ---
+	// --- test 1: invite a user ---
 	t.Run("Invite User", func(t *testing.T) {
 		reqBody := []map[string]interface{}{
 			{
@@ -95,7 +96,7 @@ func TestSharePermissionFlow(t *testing.T) {
 			t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 		}
 		
-		// Verify DB
+		// check the db
 		var perm models.DocumentPermission
 		err := database.DB.Where("document_id = ? AND user_id = ?", doc.ID, invited.ID).First(&perm).Error
 		if err != nil {
@@ -106,7 +107,7 @@ func TestSharePermissionFlow(t *testing.T) {
 		}
 	})
 
-	// --- TEST 2: List Permissions ---
+	// --- test 2: list permissions ---
 	t.Run("List Permissions", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/documents/"+doc.ID.String()+"/share", nil)
 		req.Header.Set("X-Test-User-ID", owner.ID.String())
@@ -125,7 +126,7 @@ func TestSharePermissionFlow(t *testing.T) {
 		}
 	})
 
-	// --- TEST 3: Request Access ---
+	// --- test 3: request access ---
 	var requestID string
 	t.Run("Request Access", func(t *testing.T) {
 		req, _ := http.NewRequest("POST", "/documents/"+doc.ID.String()+"/request-access", nil)
@@ -145,7 +146,7 @@ func TestSharePermissionFlow(t *testing.T) {
 		requestID = reqModel.ID.String()
 	})
 
-	// --- TEST 4: Handle Request (Approve) ---
+	// --- test 4: approve the request ---
 	t.Run("Handle Request - Approve", func(t *testing.T) {
 		reqBody := map[string]interface{}{
 			"action": "approved",
@@ -161,7 +162,7 @@ func TestSharePermissionFlow(t *testing.T) {
 			t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 		}
 
-		// Verify Permission Created
+		// check the permission was created
 		var perm models.DocumentPermission
 		err := database.DB.Where("document_id = ? AND user_id = ?", doc.ID, requester.ID).First(&perm).Error
 		if err != nil {
@@ -172,7 +173,7 @@ func TestSharePermissionFlow(t *testing.T) {
 		}
 	})
 
-	// --- TEST 5: Revoke Access ---
+	// --- test 5: revoke access ---
 	t.Run("Revoke Access", func(t *testing.T) {
 		req, _ := http.NewRequest("DELETE", "/documents/"+doc.ID.String()+"/share/"+invited.ID.String(), nil)
 		req.Header.Set("X-Test-User-ID", owner.ID.String())
@@ -183,7 +184,7 @@ func TestSharePermissionFlow(t *testing.T) {
 			t.Errorf("Expected 200, got %d", w.Code)
 		}
 
-		// Verify Deleted
+		// check it was deleted
 		var perm models.DocumentPermission
 		err := database.DB.Where("document_id = ? AND user_id = ?", doc.ID, invited.ID).First(&perm).Error
 		if err == nil {
