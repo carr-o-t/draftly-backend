@@ -196,15 +196,24 @@ func (s *shareService) HandleAccessRequest(requestID, ownerID uuid.UUID, action 
 		if grantRole == "" {
 			grantRole = models.RoleViewer
 		}
-		// give them the permission
-		perm := &models.DocumentPermission{
-			DocumentID: req.DocumentID,
-			UserID:     req.RequesterID,
-			Role:       grantRole,
-			CreatedAt:  time.Now(),
-		}
-		if err := s.permRepo.CreatePermission(perm); err != nil {
-			return err
+		// if they already have a permission row for this document, update its
+		// role instead of adding a second row, otherwise the same document
+		// shows up twice and the lower role can keep them read only.
+		if perm, err := s.permRepo.GetPermission(req.DocumentID, req.RequesterID); err == nil {
+			perm.Role = grantRole
+			if err := s.permRepo.UpdatePermission(perm); err != nil {
+				return err
+			}
+		} else {
+			perm := &models.DocumentPermission{
+				DocumentID: req.DocumentID,
+				UserID:     req.RequesterID,
+				Role:       grantRole,
+				CreatedAt:  time.Now(),
+			}
+			if err := s.permRepo.CreatePermission(perm); err != nil {
+				return err
+			}
 		}
 	}
 
