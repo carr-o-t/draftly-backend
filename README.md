@@ -172,7 +172,7 @@ that carries a real document change. So viewers stay live but never write.
 ### Install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/carr-o-t/draftly-backend.git
 cd backend
 cp .env.example .env   # then fill in the values
 go mod download
