@@ -8,14 +8,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// BroadcastMessage carries a payload to one client or to everyone
+// BroadcastMessage is a payload for one client or everyone
 type BroadcastMessage struct {
 	SourceClient *Client // origin, skipped during broadcast
 	TargetClient *Client // set for unicast, nil for broadcast
 	Data         []byte
 }
 
-// room holds active clients and broadcasts messages within a room
+// room keeps active clients and broadcasts messages within a room
 type Room struct {
 	ID         uuid.UUID
 	clients    map[*Client]bool
@@ -52,7 +52,7 @@ func (r *Room) Run() {
 
 		case message := <-r.broadcast:
 			if message.TargetClient != nil {
-				// unicast to one client
+				// send to one client only
 				target := message.TargetClient
 				if _, ok := r.clients[target]; ok {
 					select {
@@ -66,10 +66,10 @@ func (r *Room) Run() {
 				continue
 			}
 
-			// persist before broadcasting
+			// save to db before sending to others
 			r.handleMessage(message)
 
-			// fan out to everyone except the sender
+			// send to everyone except the sender
 			for client := range r.clients {
 				if client == message.SourceClient {
 					continue
@@ -88,16 +88,16 @@ func (r *Room) Run() {
 }
 
 func (r *Room) handleMessage(msg BroadcastMessage) {
-	// skip empty payloads
+	// skip empty messages
 	if len(msg.Data) == 0 {
 		return
 	}
 
-	// persist only genuine doc updates, not handshake steps
+	// only save real doc updates, not handshake steps
 	if syncMsgUpdate(msg.Data) {
 		go r.saveUpdate(msg.Data)
 	}
-	// awareness messages are broadcast only, not persisted
+	// cursor and awareness messages are sent but not saved
 }
 
 func (r *Room) saveUpdate(data []byte) {
@@ -105,7 +105,6 @@ func (r *Room) saveUpdate(data []byte) {
 		DocumentID: r.ID,
 		Data:       data,
 	}
-	// save to a transient session via the room's db
 	if err := r.db.Create(&update).Error; err != nil {
 		log.Printf("Error saving update: %v", err)
 	}
@@ -118,7 +117,7 @@ func (r *Room) loadHistory(client *Client) {
 		return
 	}
 
-	// replay each update to just this client via the event loop
+	// send past updates to this client only
 	for _, u := range updates {
 		r.broadcast <- BroadcastMessage{TargetClient: client, Data: u.Data}
 	}

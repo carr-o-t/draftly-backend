@@ -15,6 +15,6 @@ type User struct {
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	
-	// Relations
+	// relations
 	Documents []Document `gorm:"foreignKey:OwnerID" json:"documents,omitempty"`
 }

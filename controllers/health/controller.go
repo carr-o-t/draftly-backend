@@ -8,17 +8,17 @@ import (
 )
 
 func HealthCheck(c *gin.Context) {
-	// Validation 
+	// validate
 	if err := ValidateHealthCheckRequest(c); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Service Call
+	// run the check
 	service := services.NewHealthService()
 	message := service.Check()
 
-	// Transformation
+	// build the response
 	response := TransformHealthCheckResponse(message)
 
 	c.JSON(http.StatusOK, response)

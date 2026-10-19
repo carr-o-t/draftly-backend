@@ -8,19 +8,19 @@ import (
 )
 
 type PermissionRepository interface {
-	// Permissions
+	// permissions
 	CreatePermission(perm *models.DocumentPermission) error
 	GetPermission(documentID, userID uuid.UUID) (*models.DocumentPermission, error)
 	ListPermissions(documentID uuid.UUID) ([]models.DocumentPermission, error)
 	DeletePermission(documentID, userID uuid.UUID) error
 	ListSharedDocuments(userID uuid.UUID) ([]models.DocumentPermission, error)
 
-	// Access Requests
+	// access requests
 	CreateAccessRequest(req *models.AccessRequest) error
 	GetAccessRequest(id uuid.UUID) (*models.AccessRequest, error)
 	UpdateAccessRequest(req *models.AccessRequest) error
-	ListAccessRequests(userID uuid.UUID) ([]models.AccessRequest, error) // For requests I SENT
-	ListPendingRequestsForDocs(ownerID uuid.UUID) ([]models.AccessRequest, error) // For requests I RECEIVED (as owner)
+	ListAccessRequests(userID uuid.UUID) ([]models.AccessRequest, error) // requests i sent
+	ListPendingRequestsForDocs(ownerID uuid.UUID) ([]models.AccessRequest, error) // requests i recieve as owner
 }
 
 type postgresPermissionRepository struct {
@@ -31,7 +31,7 @@ func NewPermissionRepository() PermissionRepository {
 	return &postgresPermissionRepository{db: database.DB}
 }
 
-// --- Permissions ---
+// --- permissions ---
 
 func (r *postgresPermissionRepository) CreatePermission(perm *models.DocumentPermission) error {
 	return r.db.Create(perm).Error
@@ -62,7 +62,7 @@ func (r *postgresPermissionRepository) ListSharedDocuments(userID uuid.UUID) ([]
 	return perms, err
 }
 
-// --- Access Requests ---
+// --- access requests ---
 
 func (r *postgresPermissionRepository) CreateAccessRequest(req *models.AccessRequest) error {
 	return r.db.Create(req).Error
@@ -88,13 +88,13 @@ func (r *postgresPermissionRepository) ListAccessRequests(userID uuid.UUID) ([]m
 }
 
 func (r *postgresPermissionRepository) ListPendingRequestsForDocs(ownerID uuid.UUID) ([]models.AccessRequest, error) {
-	// Complex Query: Find requests where Document Owner is ownerID AND Status is Pending
+	// find requests where the document owner is ownerID
 	var reqs []models.AccessRequest
-	// Join Documents to filter by OwnerID
+	// join documents so we can filter on the owner
 	err := r.db.Joins("Document").
 		Preload("Requester").
 		// Where("status = ?", models.StatusPending).
-		Where("\"Document\".owner_id = ?", ownerID). // Note: Case sensitive table alias depending on GORM logic, usually standard
+		Where("\"Document\".owner_id = ?", ownerID). // table alias is case sensitive here
 		Order("created_at desc").
 		Find(&reqs).Error
 	return reqs, err

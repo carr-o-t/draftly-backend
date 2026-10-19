@@ -13,7 +13,7 @@ type DocumentResponse struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	Content   string `json:"content"`
-	Role      string `json:"role,omitempty"` // "owner", "editor", "viewer"
+	Role      string `json:"role,omitempty"` // owner, editor or viewer
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
@@ -81,7 +81,7 @@ func SendListDocumentsResponse(c *gin.Context, myDocs []models.Document, sharedD
 
 	sharedDocsResp := make([]DocumentResponse, len(sharedDocs))
 	for i, d := range sharedDocs {
-		// TODO: Role needs to be fetched from share logic
+		// todo: fetch teh real role from the share entry
 		sharedDocsResp[i] = transformDocument(&d, "viewer") 
 	}
 

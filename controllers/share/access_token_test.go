@@ -52,7 +52,7 @@ func TestAccessByToken(t *testing.T) {
 	defer cleanupTestData(ownerEmail)
 	defer cleanupTestData(accessorEmail)
 
-	// Setup
+	// set up test users and a doc
 	owner := models.User{Email: ownerEmail, Name: "Owner", PasswordHash: "hash"}
 	accessor := models.User{Email: accessorEmail, Name: "Accessor", PasswordHash: "hash"}
 	database.DB.Create(&owner)
@@ -61,7 +61,7 @@ func TestAccessByToken(t *testing.T) {
 	doc := models.Document{OwnerID: owner.ID, Title: "Token Test Doc"}
 	database.DB.Create(&doc)
 
-	// Create share token
+	// make a share token
 	share := models.DocumentShare{
 		DocumentID: doc.ID,
 		Token:      "test-token-12345",
@@ -81,7 +81,7 @@ func TestAccessByToken(t *testing.T) {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
-		// User doesn't have permission, should get 401
+		// they have no permission, so we expect a 401
 		if w.Code != http.StatusUnauthorized {
 			t.Errorf("Expected 401, got %d. Body: %s", w.Code, w.Body.String())
 		}
