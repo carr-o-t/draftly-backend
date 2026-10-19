@@ -125,7 +125,9 @@ func TestSharePermissionFlow(t *testing.T) {
 	// --- test 3: request access ---
 	var requestID string
 	t.Run("Request Access", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/documents/"+doc.ID.String()+"/request-access", nil)
+		reqBody := map[string]interface{}{"role": "viewer"}
+		body, _ := json.Marshal(reqBody)
+		req, _ := http.NewRequest("POST", "/documents/"+doc.ID.String()+"/request-access", bytes.NewBuffer(body))
 		req.Header.Set("X-Test-User-ID", requester.ID.String())
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
