@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/personal-stakshi/draftly/backend/dbops"
 	"github.com/personal-stakshi/draftly/backend/models"
+	"github.com/personal-stakshi/draftly/backend/sanitize"
 	"gorm.io/gorm"
 )
 
@@ -99,8 +100,6 @@ func (s *documentService) GetDocument(id uuid.UUID, userID uuid.UUID) (*models.D
 		return doc, string(perm.Role), nil
 	}
 
-	// the share token just locates the document, it does not grant any role,
-	// users need an explicit permission or they have to request access
 	return nil, "", errors.New("access denied")
 }
 
@@ -135,11 +134,8 @@ func (s *documentService) UpdateDocument(id uuid.UUID, userID uuid.UUID, title, 
 	}
 
 	doc.Title = title
-	// content comes from the yjs doc via autosave. only overwrite the saved
-	// html snapshot when a non-empty value is given, so a plain rename
-	// never wipes it.
 	if content != "" {
-		doc.Content = content
+		doc.Content = sanitize.HTML(content)
 	}
 	doc.UpdatedAt = time.Now()
 
@@ -159,7 +155,7 @@ func (s *documentService) AutoSave(id uuid.UUID, userID uuid.UUID, content strin
 		return nil, errors.New("permission denied")
 	}
 
-	doc.Content = content
+	doc.Content = sanitize.HTML(content)
 	doc.UpdatedAt = time.Now()
 
 	if err := s.docRepo.UpdateDocument(doc); err != nil {

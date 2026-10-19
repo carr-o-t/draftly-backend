@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/personal-stakshi/draftly/backend/models"
+	"github.com/personal-stakshi/draftly/backend/sanitize"
 	"github.com/personal-stakshi/draftly/backend/services"
 )
 
@@ -34,7 +35,8 @@ func transformDocument(doc *models.Document, role string) DocumentResponse {
 	return DocumentResponse{
 		ID:        doc.ID.String(),
 		Title:     doc.Title,
-		Content:   doc.Content,
+		// also clean rows saved before we sanitized on write
+		Content:   sanitize.HTML(doc.Content),
 		Role:      role,
 		CreatedAt: doc.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: doc.UpdatedAt.Format(time.RFC3339),
