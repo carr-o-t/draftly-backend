@@ -345,7 +345,7 @@ fails because it can't reach the DB, that's usually why.
 
 ## Deployment notes
 
-- Ships as a single Go binary. `go build -o app .` then run `./app`.
+- Ships as a single Go binary. `go build -o server .` then run `./server`.
 - Reads `PORT` at startup, so it works on platforms that inject it (like Render).
 - Health probe: point the platform at `GET /health`, it returns 200.
 - Migrations run on startup (GORM `AutoMigrate`). No separate migrate step.
@@ -355,8 +355,9 @@ fails because it can't reach the DB, that's usually why.
 
 Free tier, so we use Render's web service plus its free Postgres.
 
-- Build command: `go build -tags netgo -ldflags '-s -w' -o app .` (the default works).
-- Start command: `./app` (the default works, the port comes from `PORT`).
+- Build command: `go build -tags netgo -ldflags '-s -w' -o server .`
+- Start command: `./server`. Dont use `./app`, there is an `app/` source folder so the
+  shell treats `./app` as a directory and the deploy fails with "Is a directory".
 - Health check path: `/health`.
 - Set these env vars: `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_ORIGIN`, and
   `TRUSTED_PROXIES=0.0.0.0/0` (Render puts us behind its proxy, so we trust it and read the
