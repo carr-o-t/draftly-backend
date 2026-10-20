@@ -36,7 +36,7 @@ func (s *authService) LoginOrRegister(email, password, ip string) (*models.User,
 
 		// make sure this ip has not signed up too many times
 		ipUsage, err := s.userRepo.GetIPUsage(ip)
-		if err == nil && ipUsage.CreatedAccounts >= 7 {
+		if err == nil && ipUsage.CreatedAccounts >= 3 {
 			return nil, "", false, errors.New("registration limit exceeded for this IP")
 		}
 
