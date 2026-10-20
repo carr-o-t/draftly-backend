@@ -367,6 +367,13 @@ Free tier, so we use Render's web service plus its free Postgres.
   `https://draftly.onrender.com`. The websocket only accepts that one.
 - Never commit the real `.env`. `git` already ignores it, `.env.example` is the template.
 
+Heads up on the free tier: the service sleeps after ~15 minutes with no traffic. The next
+request wakes it up and that first one can take 30-60 seconds. After it's awake it's fine, but
+there's no warm-up on the free plan, you just wait. If the frontend hits it while it's asleep,
+the first call looks frozen or times out. Free Postgres also suspends and wakes slower than
+the web service. A paid instance removes the sleep, or a cheap uptime pinger that hits
+`/health` now and then keeps it warm (against Render's rules on some plans, so check first).
+
 Must fix before the public link goes out:
 
 - No CORS config on the REST API. Add it and lock it to known origins.
@@ -381,6 +388,8 @@ Must fix before the public link goes out:
 - The `ws_token` cookie is readable by JavaScript and travels in the ws url, so it can leak
   through an XSS bug or server logs. A short-lived ticket would be better.
 - Single instance only. No cross-server rooms yet.
+- On Render free tier the service sleeps when idle, so the first request after a while is
+  slow (cold start). Requests feel laggy until it wakes up.
 - Share links are one per document and live for 10 years. No revoke or expire UI.
 - The shared docs list shows role `viewer` for everyone, we didn't fetch the real role.
 - Snapshot size: we allow up to 1,000,000 chars of content, which is a lot to store per doc
@@ -392,6 +401,7 @@ Must fix before the public link goes out:
 ## Roadmap
 
 - Compact the update log: merge old updates into one snapshot and drop the rest.
+- Move off the free tier (or warm the instance) so requests stay fast.
 - Close or re-role live sockets when permissions change.
 - Swap `ws_token` for a short-lived, one-use ticket.
 - Redis pub/sub so rooms work across multiple instances.
