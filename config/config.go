@@ -8,11 +8,14 @@ import (
 )
 
 type Config struct {
-	SupabaseURL string
-	SupabaseKey string
-	ServerPort  string
-	DatabaseURL string
-	JWTSecret   string
+	SupabaseURL    string
+	SupabaseKey    string
+	ServerPort     string
+	DatabaseURL    string
+	JWTSecret      string
+	FrontendOrigin string
+	// comma separated list of proxies we trust to set the client ip
+	TrustedProxies string
 }
 
 func LoadConfig() *Config {
@@ -27,6 +30,11 @@ func LoadConfig() *Config {
 		ServerPort:  getEnv("PORT", "8080"),
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 		JWTSecret:   getEnv("JWT_SECRET", "super-secret-key-change-me"),
+		// only this origin is allowed to open a websocket
+		FrontendOrigin: getEnv("FRONTEND_ORIGIN", "http://localhost:3000"),
+		// railway puts us behind its own proxy, so trusting all is fine there.
+		// locally there is no proxy, so we trust none.
+		TrustedProxies: getEnv("TRUSTED_PROXIES", ""),
 	}
 }
 
