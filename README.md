@@ -195,9 +195,7 @@ A liveness probe lives at `GET /health`, it returns `200`.
 | `JWT_SECRET` | yes (prod) | `super-secret-key-change-me` | Secret used to sign login tokens. Change it in prod. |
 | `PORT` | no | `8080` | Port the server listens on. Most platforms set this for you. |
 | `FRONTEND_ORIGIN` | no | `http://localhost:3000` | The only origin allowed to open a websocket. |
-| `TRUSTED_PROXIES` | no | none | Comma separated proxy list we trust for the client ip. Empty means trust nobody. On Railway set `0.0.0.0/0`. |
-| `SUPABASE_PROJECT_URL` | no | none | Supabase project url. Not really used yet. |
-| `SUPABASE_API_KEY` | no | none | Supabase anon key. Not really used yet. |
+| `TRUSTED_PROXIES` | no | none | Comma separated proxy list we trust for the client ip. Empty means trust nobody. On Render set `0.0.0.0/0`. |
 
 ### Useful commands
 
@@ -347,19 +345,25 @@ fails because it can't reach the DB, that's usually why.
 
 ## Deployment notes
 
-- Ships as a single Go binary. `go build -o server .` then run `./server`.
-- Reads `PORT` at startup, so it works on platforms that inject it (like Railway).
+- Ships as a single Go binary. `go build -o app .` then run `./app`.
+- Reads `PORT` at startup, so it works on platforms that inject it (like Render).
 - Health probe: point the platform at `GET /health`, it returns 200.
 - Migrations run on startup (GORM `AutoMigrate`). No separate migrate step.
 - The `hub` is in memory, so run a single instance for now.
 
-### Railway
+### Render
 
+Free tier, so we use Render's web service plus its free Postgres.
+
+- Build command: `go build -tags netgo -ldflags '-s -w' -o app .` (the default works).
+- Start command: `./app` (the default works, the port comes from `PORT`).
+- Health check path: `/health`.
 - Set these env vars: `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_ORIGIN`, and
-  `TRUSTED_PROXIES=0.0.0.0/0` (Railway puts us behind its proxy, so we trust it and read the
+  `TRUSTED_PROXIES=0.0.0.0/0` (Render puts us behind its proxy, so we trust it and read the
   real client ip from `X-Forwarded-For`).
+- Use the Postgres "internal" url for `DATABASE_URL` so the connection stays inside Render.
 - `FRONTEND_ORIGIN` must be the exact origin of your deployed frontend, e.g.
-  `https://draftly.vercel.app`. The websocket only accepts that one.
+  `https://draftly.onrender.com`. The websocket only accepts that one.
 - Never commit the real `.env`. `git` already ignores it, `.env.example` is the template.
 
 Must fix before the public link goes out:
