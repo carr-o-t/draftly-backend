@@ -33,7 +33,7 @@ func (s *authService) LoginOrRegister(email, password, ip string) (*models.User,
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// new user, so sign them up
-		
+
 		// make sure this ip has not signed up too many times
 		ipUsage, err := s.userRepo.GetIPUsage(ip)
 		if err == nil && ipUsage.CreatedAccounts >= 3 {
