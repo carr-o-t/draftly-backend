@@ -1,6 +1,35 @@
 package realtime
 
-import "testing"
+import (
+	"net/http/httptest"
+	"testing"
+)
+
+func TestCheckOrigin(t *testing.T) {
+	t.Setenv("FRONTEND_ORIGIN", "https://app.example.com")
+
+	cases := []struct {
+		name   string
+		origin string
+		want   bool
+	}{
+		{"allowed origin", "https://app.example.com", true},
+		{"other origin", "https://evil.example.com", false},
+		{"no origin header", "", true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest("GET", "/ws/x", nil)
+			if tc.origin != "" {
+				r.Header.Set("Origin", tc.origin)
+			}
+			if got := checkOrigin(r); got != tc.want {
+				t.Fatalf("origin %q: got %v, want %v", tc.origin, got, tc.want)
+			}
+		})
+	}
+}
 
 func TestBearerToken(t *testing.T) {
 	cases := []struct {

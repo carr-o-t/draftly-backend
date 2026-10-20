@@ -114,11 +114,15 @@ Every doc update that comes over the socket is a Yjs binary "update". We save th
 blobs in the `document_updates` table, in order. When someone joins a room, we replay all
 the saved updates to them, so they catch up.
 
+This is an append-only log, and right now it grows forever. Nothing merges or prunes it.
+See the limitations section: this needs compaction before it's a real problem.
+
 On top of that:
 
 - The client sends a debounced HTML snapshot to `PATCH /v1/documents/:id/autosave`.
 - We store that cleaned HTML in `documents.content` for thumbnails.
 - It's one-directional: Yjs -> snapshot. The editor never reads `documents.content` on load.
+- Several editors can autosave at the same time, so it's last-write-wins. That's fine, since the snapshot is only used for thumbnails. The real doc is still the Yjs log.
 
 ```mermaid
 sequenceDiagram
@@ -179,7 +183,9 @@ go mod download
 go run .
 ```
 
-The server starts on port `8080` by default.
+The server reads `PORT` (default `8080`) and starts on it.
+
+A liveness probe lives at `GET /health`, it returns `200`.
 
 ### Env vars
 
@@ -187,9 +193,9 @@ The server starts on port `8080` by default.
 | --- | :---: | --- | --- |
 | `DATABASE_URL` | yes | none | Postgres connection string. Pooler URLs with `?pgbouncer=true` work. |
 | `JWT_SECRET` | yes (prod) | `super-secret-key-change-me` | Secret used to sign login tokens. Change it in prod. |
-| `PORT` | no | `8080` | Port the server listens on. |
-| `SUPABASE_PROJECT_URL` | no | none | Supabase project url. Not really used yet. |
-| `SUPABASE_API_KEY` | no | none | Supabase anon key. Not really used yet. |
+| `PORT` | no | `8080` | Port the server listens on. Most platforms set this for you. |
+| `FRONTEND_ORIGIN` | no | `http://localhost:3000` | The only origin allowed to open a websocket. |
+| `TRUSTED_PROXIES` | no | none | Comma separated proxy list we trust for the client ip. Empty means trust nobody. On Render set `0.0.0.0/0`. |
 
 ### Useful commands
 
@@ -231,6 +237,22 @@ The tradeoff: a room is tied to one server process. The `hub` lives in memory. S
 works on a single instance for now. Scaling to many servers would need a shared pub/sub
 (like Redis) so rooms can talk across instances. We're not there yet.
 
+### The update log grows forever
+
+We store every Yjs update as its own row. We never merge or delete old ones. We replay the
+whole log on join.
+
+This is simple and safe; no data loss, no merge logic to get wrong. But it has a cost:
+
+- Over time the table grows without bound, which is bad on a free-tier database.
+- Replaying thousands of small updates on join gets slower and slower.
+
+The fix (not done yet) is compaction. Merge all the updates for a document into one snapshot
+and drop the old rows, the same way Yjs itself merges CRDT updates. We can do that on the Go
+side, since a merged update is still just bytes to us. If that turns out to be awkward, a
+fallback is asking a connected client to send a full state update on a timer, and store that
+as the new base. For now we just document it and keep it on the roadmap.
+
 ### The abuse limits
 
 Small project, so a few simple guards:
@@ -269,9 +291,31 @@ The fix: write each Yjs message as its own binary frame.
 ### The auth cookie vs the websocket
 
 The auth cookie is HttpOnly, which is good for security, but the websocket client couldn't
-read it to authenticate. So we added a second, non-HttpOnly `ws_token` cookie just for the
-socket, sent as `?token=...` on the ws url. You need to log in again after this change so the
-new cookie gets set.
+read it to authenticate. So we added a second, non-HttpOnly `ws_token` cookie, sent as
+`?token=...` on the ws url. You need to log in again after this change so the new cookie gets
+set.
+
+We should be honest about this one: the `ws_token` cookie holds the same JWT as `auth_token`
+and is readable by JavaScript. So it weakens the HttpOnly story — an XSS bug could read it
+and reuse it. And putting a token in a url means it can show up in server logs. It's a
+tradeoff we took for a quick fix.
+
+The tidier approach is a short-lived ticket. The Next route asks the backend for a one-use
+token that expires in about 30 seconds, and the socket connects with that instead of the long
+JWT. We haven't done that yet.
+
+### Mid-session permission changes
+
+The role is decided once, when the socket connects (`resolveRole`, then `ReadOnly: role ==
+"viewer"`). After that we never re-check it. So:
+
+- If an owner revokes a connected user, that user keeps their session until they disconnect.
+- If a viewer is upgraded to editor, they stay read-only until they reconnect.
+
+One more thing on this: since it's resolved at connect, the earlier "viewer upgraded to
+editor" confusion was really just the socket holding the old role. Reconnecting fixes it.
+
+We should close or re-role live sockets when access changes. That's on the roadmap.
 
 ### Viewers writing
 
@@ -301,26 +345,57 @@ fails because it can't reach the DB, that's usually why.
 
 ## Deployment notes
 
-- Only needs `DATABASE_URL`, `JWT_SECRET`, and `PORT`.
+- Ships as a single Go binary. `go build -o app .` then run `./app`.
+- Reads `PORT` at startup, so it works on platforms that inject it (like Render).
+- Health probe: point the platform at `GET /health`, it returns 200.
 - Migrations run on startup (GORM `AutoMigrate`). No separate migrate step.
-- Ships as a single Go binary. `go build -o server .` then run `./server`.
-- `CheckOrigin` on the websocket currently allows all origins. Need to tighten this before real
-  production.
 - The `hub` is in memory, so run a single instance for now.
+
+### Render
+
+Free tier, so we use Render's web service plus its free Postgres.
+
+- Build command: `go build -tags netgo -ldflags '-s -w' -o app .` (the default works).
+- Start command: `./app` (the default works, the port comes from `PORT`).
+- Health check path: `/health`.
+- Set these env vars: `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_ORIGIN`, and
+  `TRUSTED_PROXIES=0.0.0.0/0` (Render puts us behind its proxy, so we trust it and read the
+  real client ip from `X-Forwarded-For`).
+- Use the Postgres "internal" url for `DATABASE_URL` so the connection stays inside Render.
+- `FRONTEND_ORIGIN` must be the exact origin of your deployed frontend, e.g.
+  `https://draftly.onrender.com`. The websocket only accepts that one.
+- Never commit the real `.env`. `git` already ignores it, `.env.example` is the template.
+
+Must fix before the public link goes out:
+
+- No CORS config on the REST API. Add it and lock it to known origins.
+- No rate limit on socket messages. Someone could spam updates and fill the DB fast.
 
 ## Known limitations
 
+- The update log grows forever. We store every Yjs update and never compact, so the table
+  keeps growing and joins get slower over time. This is the big one for a free-tier DB.
+- Permissions aren't re-checked mid-session. Revoked or downgraded users keep their current
+  socket until they disconnect.
+- The `ws_token` cookie is readable by JavaScript and travels in the ws url, so it can leak
+  through an XSS bug or server logs. A short-lived ticket would be better.
 - Single instance only. No cross-server rooms yet.
 - Share links are one per document and live for 10 years. No revoke or expire UI.
 - The shared docs list shows role `viewer` for everyone, we didn't fetch the real role.
+- Snapshot size: we allow up to 1,000,000 chars of content, which is a lot to store per doc
+  just for a thumbnail. Storing a short preview would be cheaper and more reliable.
 - No real-time presence list (who's online) shown to the user yet.
 - No rate limiting on the REST API other than the IP signup cap.
 - No CORS config yet.
 
 ## Roadmap
 
+- Compact the update log: merge old updates into one snapshot and drop the rest.
+- Close or re-role live sockets when permissions change.
+- Swap `ws_token` for a short-lived, one-use ticket.
 - Redis pub/sub so rooms work across multiple instances.
 - Real role in the shared docs list.
+- Store only a short preview for thumbnails instead of the full HTML.
 - Proper share link management (expire, revoke).
 - Per-document version history built from the saved Yjs updates.
 - Real-time presence (who's viewing).

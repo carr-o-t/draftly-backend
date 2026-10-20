@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/personal-stakshi/draftly/backend/config"
 )
 
 const (
@@ -25,10 +26,19 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	// allow all origins for now, tighten this in production
-	CheckOrigin: func(r *http.Request) bool {
+	// only let our own frontend open a socket
+	CheckOrigin: checkOrigin,
+}
+
+// checkOrigin compares the browser origin against the configured frontend
+// origin. we keep the default upgrader behaviour of allowing requests with
+// no origin header (same-origin and non-browser clients dont send one).
+func checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
 		return true
-	},
+	}
+	return origin == config.LoadConfig().FrontendOrigin
 }
 
 // client sits between the websocket connection and the hub

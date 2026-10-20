@@ -32,16 +32,16 @@ func SetupRoutes(r *gin.Engine, hub *realtime.Hub) {
 			docsGroup.PATCH("/:id", document.UpdateDocument)
 			docsGroup.DELETE("/:id", document.DeleteDocument)
 			docsGroup.PATCH("/:id/autosave", document.AutoSave)
-			
+
 			// sharing and permissions
 			docsGroup.POST("/:id/share", share.InviteUsers)
 			docsGroup.GET("/:id/share", share.ListPermissions)
 			docsGroup.DELETE("/:id/share/:userId", share.RevokeAccess)
-			
+
 			docsGroup.POST("/:id/request-access", share.RequestAccess)
 			docsGroup.POST("/:id/requests/:requestId", share.HandleRequest)
 		}
-		
+
 		v1.GET("/access/requests", middleware.AuthMiddleware(), share.ListRequests)
 		v1.POST("/share/access", middleware.AuthMiddleware(), share.AccessByToken)
 	}

@@ -14,8 +14,8 @@ const (
 	SyncUpdate = 2 // incremental doc update, the only one we save
 )
 
-// readVarUint reads a varuint from data at offset and returns the value
-// and how many bytes it used. returns ok=false if data ends too early.
+// read a varuint from data at offset and return the value and how many bytes it used
+// return ok=false if data ends too early.
 func readVarUint(data []byte, offset int) (value int, size int, ok bool) {
 	mult := 1
 	value = 0
@@ -32,8 +32,8 @@ func readVarUint(data []byte, offset int) (value int, size int, ok bool) {
 	return 0, 0, false
 }
 
-// syncMsgUpdate checks if data is a yjs MsgSync carrying a SyncUpdate,
-// the only sync message that contains a doc change worth saving.
+// check if data is a yjs MsgSync carrying a SyncUpdate,
+// the only sync message that contains a doc change should be saved
 func syncMsgUpdate(data []byte) bool {
 	if len(data) == 0 {
 		return false
