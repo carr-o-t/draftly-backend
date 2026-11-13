@@ -27,8 +27,9 @@ func SendAuthResponse(c *gin.Context, user *models.User, token string, isNew boo
 		switch err.Error() {
 		case "invalid credentials":
 			status = http.StatusUnauthorized
-		case "registration limit exceeded for this IP":
-			status = http.StatusTooManyRequests
+		// TODO: restore together with the per ip signup limit in auth_service.go
+		// case "registration limit exceeded for this IP":
+		// 	status = http.StatusTooManyRequests
 		case "failed to hash password", "failed to create user", "failed to generate token":
 			status = http.StatusInternalServerError
 		default:
