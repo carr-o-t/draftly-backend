@@ -70,7 +70,7 @@ Here are the screenshots of the flow we care about.
 - Share links via a token.
 - Real time collaboration over websockets using Yjs.
 - Roles: `owner`, `editor`, `viewer`.
-- Limits: max 5 owned docs per user, max 3 signups per IP, size caps on title/content/token.
+- Limits: max 5 owned docs per user, size caps on title/content/token. The per IP signup limit is off for now and will be added later.
 - HTML sanitizing before content is stored, so we don't save XSS junk.
 
 ## Architecture
@@ -258,7 +258,7 @@ as the new base. For now we just document it and keep it on the roadmap.
 Small project, so a few simple guards:
 
 - Max 5 owned documents per user.
-- Max 3 signups per IP address.
+- Per IP signup limit: turned off for now, we still store IPs. Will be added later.
 - Caps on title (`255`), content (`1,000,000` chars), password (`72`, bcrypt's limit),
   email (`255`), and share tokens (`64`).
 - HTML content is sanitized on write AND on read (so old rows get cleaned too).
@@ -395,7 +395,7 @@ Must fix before the public link goes out:
 - Snapshot size: we allow up to 1,000,000 chars of content, which is a lot to store per doc
   just for a thumbnail. Storing a short preview would be cheaper and more reliable.
 - No real-time presence list (who's online) shown to the user yet.
-- No rate limiting on the REST API other than the IP signup cap.
+- No rate limiting on the REST API. The per IP signup cap is off for now, will be added later.
 - No CORS config yet.
 
 ## Roadmap
