@@ -34,11 +34,13 @@ func (s *authService) LoginOrRegister(email, password, ip string) (*models.User,
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// new user, so sign them up
 
+		// TODO: re-implement the per ip signup limit later, it needs some work
+		// for now any ip / device can register any number of accounts
 		// make sure this ip has not signed up too many times
-		ipUsage, err := s.userRepo.GetIPUsage(ip)
-		if err == nil && ipUsage.CreatedAccounts >= 3 {
-			return nil, "", false, errors.New("registration limit exceeded for this IP")
-		}
+		// ipUsage, err := s.userRepo.GetIPUsage(ip)
+		// if err == nil && ipUsage.CreatedAccounts >= 3 {
+		// 	return nil, "", false, errors.New("registration limit exceeded for this IP")
+		// }
 
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
